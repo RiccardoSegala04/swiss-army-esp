@@ -1,0 +1,10 @@
+[package]
+name = "swiss-army-esp"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+async-trait = "0.1.89"
+embedded-hal = "1.0.0"
+embedded-hal-async = "1.0.0"
+tokio = { version = "1.49", features = ["full"] }

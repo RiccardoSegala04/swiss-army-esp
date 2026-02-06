@@ -1,0 +1,1 @@
+/home/riccards/Projects/electronics/swiss-army-esp/target/debug/swiss-army-esp: /home/riccards/Projects/electronics/swiss-army-esp/src/host/host_pin.rs /home/riccards/Projects/electronics/swiss-army-esp/src/host/mod.rs /home/riccards/Projects/electronics/swiss-army-esp/src/main.rs
