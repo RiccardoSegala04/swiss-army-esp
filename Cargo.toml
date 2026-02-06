@@ -57,6 +57,7 @@ static_cell      = "2.1.1"
 ssd1306 = "0.10.0"
 embedded-hal = "1.0.0"
 embassy-sync = "0.7.2"
+embedded-graphics = "0.8.1"
 
 
 [profile.dev]

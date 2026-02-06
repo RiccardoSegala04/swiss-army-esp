@@ -1,7 +1,7 @@
 use embedded_hal::digital::InputPin;
 use embedded_hal::pwm::SetDutyCycle;
 
-struct Controller<PWMpin, InPin> {
+pub struct Controller<PWMpin, InPin> {
     rgb_led: (PWMpin, PWMpin, PWMpin),
     confirm_button: InPin,
 }

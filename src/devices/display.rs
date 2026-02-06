@@ -1,6 +1,5 @@
 use embedded_graphics::draw_target::DrawTarget;
 use embedded_graphics::Drawable;
-use embedded_graphics::pixel_color::PixelColor;
 
 pub struct Display<D>
 where
@@ -21,7 +20,8 @@ where
     where
         T: Drawable<Color = D::Color>,
     {
-        item.draw(&mut self.target)
+        item.draw(&mut self.target)?;
+        Ok(())
     }
 
     pub fn draw_all<'a, T, I>(&mut self, items: I) -> Result<(), D::Error>
@@ -35,7 +35,7 @@ where
         Ok(())
     }
 
-    pub fn clear(&mut self, color: C) -> Result<(), D::Error>
+    pub fn clear<C>(&mut self, color: C) -> Result<(), D::Error>
     where
         C: Into<D::Color>,
     {
