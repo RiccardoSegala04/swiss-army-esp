@@ -14,18 +14,18 @@ use esp_hal::timer::timg::TimerGroup;
 
 mod devices;
 use devices::Controller;
-use devices::Display;
+use devices::display::{Display, DisplaySsd1306};
 
 mod services;
 use services::controller_service;
 
-use esp_hal::{i2c::master::Config as I2cConfig, time::Rate};
 use esp_hal::i2c::master::I2c;
-use ssd1306::{prelude::*, I2CDisplayInterface, Ssd1306};
+use esp_hal::{i2c::master::Config as I2cConfig, time::Rate};
+use ssd1306::{I2CDisplayInterface, Ssd1306, prelude::*};
 
 use embedded_graphics::{
     Drawable,
-    mono_font::{ascii::FONT_6X10, MonoTextStyle},
+    mono_font::{MonoTextStyle, ascii::FONT_6X10},
     pixelcolor::BinaryColor,
     prelude::*,
     text::{Alignment, Text},
@@ -70,31 +70,22 @@ async fn main(spawner: Spawner) -> ! {
         .into_buffered_graphics_mode();
     target.init().unwrap();
 
-    let mut display = Display::new(target);
+    let mut display = DisplaySsd1306::new(target);
 
     let character_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
 
     let text = "Palle";
-    let t1 = Text::with_alignment(
-        text,
-        Point::new(64, 15),
-        character_style,
-        Alignment::Center,
-    );
+    let t1 = Text::with_alignment(text, Point::new(64, 15), character_style, Alignment::Center);
 
     let text = "Nere";
-    let t2 = Text::with_alignment(
-        text,
-        Point::new(64, 30),
-        character_style,
-        Alignment::Center,
-    );
+    let t2 = Text::with_alignment(text, Point::new(64, 30), character_style, Alignment::Center);
 
     let drawable = [t1, t2];
 
+    display.clear();
     display.draw_all(drawable.iter());
-    
-    
+    display.flush();
+
     // TODO: Spawn some tasks
     let _ = spawner;
 
