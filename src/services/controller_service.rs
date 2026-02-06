@@ -1,3 +1,4 @@
+use crate::services::service_router::{self, ServiceRouterEvent};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel;
 
@@ -9,19 +10,24 @@ pub enum ControllerEvent {
     ConfirmPressed,
 }
 
+static CONTROLLER_COMMANDS_CHANNEL: channel::Channel<
+    CriticalSectionRawMutex,
+    ControllerCommand,
+    1,
+> = channel::Channel::new();
+
 pub struct ControllerService {
-    commands_channel: channel::Channel<CriticalSectionRawMutex, ControllerCommand, 1>,
-    events_channel: channel::Channel<CriticalSectionRawMutex, ControllerEvent, 1>,
+    commands_channel: &'static channel::Channel<CriticalSectionRawMutex, ControllerCommand, 1>,
+    events_sender: channel::DynamicSender<'static, service_router::ServiceRouterEvent>,
 }
 
 impl ControllerService {
-    pub fn new() -> Self {
-        let commands_channel = channel::Channel::new();
-        let events_channel = channel::Channel::new();
-
+    pub fn new(
+        events_sender: channel::DynamicSender<'static, service_router::ServiceRouterEvent>,
+    ) -> Self {
         Self {
-            commands_channel,
-            events_channel,
+            commands_channel: &CONTROLLER_COMMANDS_CHANNEL,
+            events_sender,
         }
     }
 
@@ -33,11 +39,22 @@ impl ControllerService {
         self.commands_channel.dyn_receiver()
     }
 
-    fn events_sender(&self) -> channel::DynamicSender<'_, ControllerEvent> {
-        self.events_channel.dyn_sender()
+    pub async fn run(self) -> ! {
+        let commands = self.commands_receiver();
+        loop {
+            let command = commands.receive().await;
+            match command {
+                ControllerCommand::LedColor { red, green, blue } => {
+                    // Handle LED color change
+                    // For example, set the LED color using the device driver
+                }
+            }
+        }
     }
 
-    pub fn events_receiver(&self) -> channel::DynamicReceiver<'_, ControllerEvent> {
-        self.events_channel.dyn_receiver()
+    pub async fn send_event(&mut self, event: ControllerEvent) {
+        self.events_sender
+            .send(ServiceRouterEvent::ControllerEvent(event))
+            .await;
     }
 }
