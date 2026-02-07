@@ -16,8 +16,12 @@ mod devices;
 use devices::Controller;
 use devices::display::{Display, DisplaySsd1306};
 
-mod services;
-use services::controller_service;
+mod ui;
+use ui::views::ListView;
+use ui::views::DummyView;
+
+// mod services;
+// use services::controller_service;
 
 use esp_hal::i2c::master::I2c;
 use esp_hal::{i2c::master::Config as I2cConfig, time::Rate};
@@ -31,7 +35,6 @@ use embedded_graphics::{
     text::{Alignment, Text},
 };
 
-use crate::services::service_router::EventRouter;
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -90,20 +93,6 @@ async fn main(spawner: Spawner) -> ! {
 
     // TODO: Spawn some tasks
     let _ = spawner;
-
-    static EVENT_ROUTER: EventRouter = EventRouter;
-
-    static controller_service =
-        controller_service::ControllerService::new(EVENT_ROUTER.events_sender());
-
-    let mut command_router = services::service_router::CommandRouter::new(&controller_service);
-
-    #[embassy_executor::task]
-    async fn controller_task(controller_service: controller_service::ControllerService) -> ! {
-        controller_service.run().await
-    }
-
-    spawner.spawn(controller_task(controller_service)).unwrap();
 
     loop {
         Timer::after(Duration::from_secs(1)).await;
