@@ -42,4 +42,14 @@ where
     }
 }
 
+impl<'a> From<DummyView<'a>> for ViewType<'a> {
+    fn from(v: DummyView<'a>) -> ViewType<'a> {
+        ViewType::DummyView(v)
+    }
+}
 
+impl<'a> From<ListView<'a>> for ViewType<'a> {
+    fn from(v: ListView<'a>) -> ViewType<'a> {
+        ViewType::ListView(v)
+    }
+}
