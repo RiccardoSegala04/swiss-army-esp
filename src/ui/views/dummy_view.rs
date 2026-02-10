@@ -28,9 +28,7 @@ where
     D: DrawTarget<Color = BinaryColor>
 {
     fn run(&mut self, display: &mut impl Display<D>) {
-        let rect = Rectangle::new(Point::new(0, 0), Size::new(20, 10))
-            .into_styled(PrimitiveStyle::with_fill(BinaryColor::On));
-        let _ = display.draw(&rect);
+        _ = display;
     }
 
     fn title(&self) -> &str {
