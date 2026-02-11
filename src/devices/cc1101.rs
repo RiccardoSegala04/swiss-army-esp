@@ -74,7 +74,7 @@ where
     }
 
     async fn strobe_cmd(&mut self, cmd: StrobeCmd) -> Result<u8, <SPId>::Error> {
-        let command = (cmd as u8);
+        let command = cmd as u8;
         let mut reply = [0u8];
         self.cc1101_spi
             .transaction(&mut [
@@ -86,6 +86,7 @@ where
 }
 
 #[repr(u8)]
+#[allow(non_camel_case_types)]
 pub enum Register {
     IOCFG2 = 0x00,   // GDO2 output pin configuration
     IOCFG1 = 0x01,   // GDO1 output pin configuration
@@ -141,6 +142,7 @@ pub enum Register {
 }
 
 #[repr(u8)]
+#[allow(non_camel_case_types)]
 pub enum StatusReg {
     // CC1101 STATUS REGISTERS
     PARTNUM = 0x30,
