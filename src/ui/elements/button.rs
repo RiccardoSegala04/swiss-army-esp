@@ -8,30 +8,35 @@ use embedded_graphics::{
     draw_target::DrawTarget,
 };
 
+use crate::ui::Style;
+
 pub struct Button<'a> {
     name: &'a str,
     selected: bool,
     center: Point,
     size: Size, // store width and height
+    style: &'a Style,
 }
 
 impl<'a> Button<'a> {
 
- pub fn new(name: &'a str, center: Point, size: Size) -> Self {
+ pub fn new(style: &'a Style, name: &'a str, center: Point, size: Size) -> Self {
         Self {
             name,
             selected: false,
             center,
             size,
+            style,
         }
     }
     
-    pub fn selected_new(name: &'a str, center: Point, size: Size) -> Self {
+    pub fn selected_new(style: &'static Style, name: &'a str, center: Point, size: Size) -> Self {
         Self {
             name,
             selected: true,
             center,
             size,
+            style
         }
     }
 
@@ -64,9 +69,9 @@ impl<'a> Drawable for Button<'a> {
 
         // Rectangle style
         let rect_style = if self.selected {
-            PrimitiveStyle::with_fill(BinaryColor::On)
+            self.style.selected
         } else {
-            PrimitiveStyle::with_stroke(BinaryColor::On, 1)
+            self.style.deselected
         };
 
 
@@ -79,7 +84,7 @@ impl<'a> Drawable for Button<'a> {
 
         let text_style = MonoTextStyleBuilder::new()
             .font(&FONT_6X10)
-            .text_color(if self.selected { BinaryColor::Off } else { BinaryColor::On })
+            .text_color(if self.selected { self.style.color_bg } else { self.style.color_fg })
             .build();
 
         let text_center = Point::new(self.center.x, self.center.y+3);
