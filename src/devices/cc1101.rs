@@ -18,7 +18,7 @@ where
     }
 
     async fn write_reg(&mut self, reg: Register, value: u8) -> Result<(), <SPId>::Error> {
-        let address: u8 = (reg as u8) | (RegOffset::Write as u8);
+        let address = (reg as u8) | (RegOffset::Write as u8);
 
         self.cc1101_spi
             .transaction(&mut [
@@ -29,7 +29,7 @@ where
     }
 
     async fn write_burst(&mut self, reg: Register, buffer: &[u8]) -> Result<(), <SPId>::Error> {
-        let address: u8 = (reg as u8) | (RegOffset::WriteBurst as u8);
+        let address = (reg as u8) | (RegOffset::WriteBurst as u8);
         self.cc1101_spi
             .transaction(&mut [
                 Write(&[address]), //
@@ -39,19 +39,19 @@ where
     }
 
     async fn read_reg(&mut self, reg: Register) -> Result<u8, <SPId>::Error> {
-        let mut value: u8 = 0;
-        let address: u8 = (reg as u8) | (RegOffset::Read as u8);
+        let mut value = [0u8];
+        let address = (reg as u8) | (RegOffset::Read as u8);
         self.cc1101_spi
             .transaction(&mut [
-                Write(&[address]),  //
-                Read(&mut [value]), //
+                Write(&[address]), //
+                Read(&mut value),  //
             ])
             .await?;
-        Ok(value)
+        Ok(value[0])
     }
 
     async fn read_burst(&mut self, reg: Register, buffer: &mut [u8]) -> Result<(), <SPId>::Error> {
-        let address: u8 = (reg as u8) | (RegOffset::ReadBurst as u8);
+        let address = (reg as u8) | (RegOffset::ReadBurst as u8);
 
         self.cc1101_spi
             .transaction(&mut [
@@ -62,26 +62,26 @@ where
     }
 
     async fn read_status(&mut self, reg: StatusReg) -> Result<u8, <SPId>::Error> {
-        let mut value: u8 = 0;
-        let address: u8 = (reg as u8) | (RegOffset::ReadBurst as u8);
+        let mut value = [0u8];
+        let address = (reg as u8) | (RegOffset::ReadBurst as u8);
         self.cc1101_spi
             .transaction(&mut [
-                Write(&[address]),  //
-                Read(&mut [value]), //
+                Write(&[address]), //
+                Read(&mut value),  //
             ])
             .await?;
-        Ok(value)
+        Ok(value[0])
     }
 
     async fn strobe_cmd(&mut self, cmd: StrobeCmd) -> Result<u8, <SPId>::Error> {
-        let command: u8 = (cmd as u8);
-        let mut reply: u8 = 0;
+        let command = (cmd as u8);
+        let mut reply = [0u8];
         self.cc1101_spi
             .transaction(&mut [
-                Transfer(&mut [reply], &[command]), //
+                Transfer(&mut reply, &[command]), //
             ])
             .await?;
-        Ok(reply)
+        Ok(reply[0])
     }
 }
 
