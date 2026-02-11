@@ -1,6 +1,9 @@
 use crate::services::controller_service;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::channel;
+use embassy_sync::channel::{self, Receiver, Sender};
+use embassy_sync::channel::{DynamicReceiver, DynamicSender};
+
+use once_cell::sync::Lazy;
 
 pub enum ServiceRouterCommand {
     ControllerCommand(controller_service::ControllerCommand),
@@ -10,30 +13,31 @@ pub enum ServiceRouterEvent {
     ControllerEvent(controller_service::ControllerEvent),
 }
 
-static COMMANDS_CHANNEL: channel::Channel<CriticalSectionRawMutex, ServiceRouterCommand, 1> =
-    channel::Channel::new();
+static COMMANDS_CHANNEL: Lazy<channel::Channel<CriticalSectionRawMutex, ServiceRouterCommand, 1>> =
+    Lazy::new(|| channel::Channel::new());
 
-pub struct CommandRouter {
+pub struct CommandRouter<'a> {
     commands_channel: &'static channel::Channel<CriticalSectionRawMutex, ServiceRouterCommand, 1>,
-    controller_commands: channel::DynamicSender<'static, controller_service::ControllerCommand>,
+
+    controller_commands: DynamicSender<'a, controller_service::ControllerCommand>,
 }
 
-impl CommandRouter {
-    pub fn new(controller: &'static controller_service::ControllerService) -> Self {
-        let controller_commands = controller.commands_sender();
-
+impl<'a> CommandRouter<'a> {
+    pub fn new(
+        controller_commands: DynamicSender<'static, controller_service::ControllerCommand>,
+    ) -> Self {
         Self {
             commands_channel: &COMMANDS_CHANNEL,
-            controller_commands: controller_commands,
+            controller_commands,
         }
     }
 
-    pub fn commands_sender(&self) -> channel::DynamicSender<'_, ServiceRouterCommand> {
-        self.commands_channel.dyn_sender()
+    pub fn commands_sender(&self) -> Sender<'_, CriticalSectionRawMutex, ServiceRouterCommand, 1> {
+        self.commands_channel.sender()
     }
 
-    fn commands_receiver(&self) -> channel::DynamicReceiver<'_, ServiceRouterCommand> {
-        self.commands_channel.dyn_receiver()
+    fn commands_receiver(&self) -> Receiver<'_, CriticalSectionRawMutex, ServiceRouterCommand, 1> {
+        self.commands_channel.receiver()
     }
 
     pub async fn run(&mut self) -> ! {
@@ -55,15 +59,15 @@ static EVENTS_CHANNEL: channel::Channel<CriticalSectionRawMutex, ServiceRouterEv
 pub struct EventRouter;
 
 impl EventRouter {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self
     }
 
-    pub fn events_sender(&self) -> channel::DynamicSender<'static, ServiceRouterEvent> {
+    pub fn events_sender() -> DynamicSender<'static, ServiceRouterEvent> {
         EVENTS_CHANNEL.dyn_sender()
     }
 
-    pub fn events_receiver(&self) -> channel::DynamicReceiver<'static, ServiceRouterEvent> {
+    pub fn events_receiver() -> DynamicReceiver<'static, ServiceRouterEvent> {
         EVENTS_CHANNEL.dyn_receiver()
     }
 }

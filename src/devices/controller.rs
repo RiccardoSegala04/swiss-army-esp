@@ -1,4 +1,5 @@
 use embedded_hal::digital::InputPin;
+use embedded_hal::digital::OutputPin;
 use embedded_hal::pwm::SetDutyCycle;
 
 pub struct Controller<PWMpin, InPin> {
@@ -8,7 +9,7 @@ pub struct Controller<PWMpin, InPin> {
 
 impl<PWMpin, InPin> Controller<PWMpin, InPin>
 where
-    PWMpin: SetDutyCycle,
+    PWMpin: OutputPin, //SetDutyCycle,
     InPin: InputPin,
 {
     pub fn new(rgb_led: (PWMpin, PWMpin, PWMpin), confirm_button: InPin) -> Self {
@@ -19,9 +20,9 @@ where
     }
 
     pub fn set_led(&mut self, red: u8, green: u8, blue: u8) -> Result<(), PWMpin::Error> {
-        self.rgb_led.0.set_duty_cycle_percent(red)?;
-        self.rgb_led.1.set_duty_cycle_percent(green)?;
-        self.rgb_led.2.set_duty_cycle_percent(blue)?;
+        //self.rgb_led.0.set_duty_cycle_percent(red)?;
+        //self.rgb_led.1.set_duty_cycle_percent(green)?;
+        //self.rgb_led.2.set_duty_cycle_percent(blue)?;
         Ok(())
     }
 

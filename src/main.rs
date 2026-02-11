@@ -9,19 +9,25 @@
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
 use esp_hal::clock::CpuClock;
-use esp_hal::gpio::Output;
-use esp_hal::timer::timg::TimerGroup;
+use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig};
+use esp_hal::peripherals::Peripherals;
+use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
+
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 
 mod devices;
-use devices::Controller;
+use devices::controller;
 use devices::display::{Display, DisplaySsd1306};
 
 mod ui;
-use ui::views::ListView;
 use ui::views::DummyView;
+use ui::views::ListView;
 
-// mod services;
-// use services::controller_service;
+mod services;
+use embassy_sync::channel;
+use services::controller_service;
+use services::service_router;
 
 use esp_hal::i2c::master::I2c;
 use esp_hal::{i2c::master::Config as I2cConfig, time::Rate};
@@ -34,7 +40,6 @@ use embedded_graphics::{
     prelude::*,
     text::{Alignment, Text},
 };
-
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -91,12 +96,73 @@ async fn main(spawner: Spawner) -> ! {
     display.draw_all(drawable.iter());
     display.flush();
 
+    //static COM_CHANNEL: channel::Channel<
+    //    CriticalSectionRawMutex,
+    //    service_router::ServiceRouterCommand,
+    //    1,
+    //> = channel::Channel::new();
+    //static EV_CHANNEL: channel::Channel<
+    //    CriticalSectionRawMutex,
+    //    service_router::ServiceRouterEvent,
+    //    1,
+    //> = channel::Channel::new();
+    //static CONTR_COMMANDS: channel::Channel<
+    //    CriticalSectionRawMutex,
+    //    controller_service::ControllerCommand,
+    //    1,
+    //> = channel::Channel::new();
+
+    #[embassy_executor::task]
+    async fn command_router_task() -> ! {
+        let controller_commands = controller_service::ControllerService::<
+            Output<'static>,
+            Input<'static>,
+        >::commands_sender();
+
+        //let IR_commands = IR_service::IRService::<
+        //    Output<'static>,
+        //    Input<'static>,
+        //>::commands_sender();
+
+        let mut com_router =
+            service_router::CommandRouter::new(controller_commands /* , IR_commands)*/);
+        com_router.run().await
+    } //  ui -> services
+
+    let cont = controller::Controller::new(
+        (
+            Output::new(p.GPIO12, Level::Low, OutputConfig::default()),
+            Output::new(p.GPIO14, Level::Low, OutputConfig::default()),
+            Output::new(p.GPIO27, Level::Low, OutputConfig::default()),
+        ),
+        Input::new(p.GPIO13, InputConfig::default()),
+    );
+
+    #[embassy_executor::task]
+    async fn controller_service_task(
+        controller: controller::Controller<Output<'static>, Input<'static>>,
+    ) -> ! {
+        let events = service_router::EventRouter::events_sender(); // services -> ui
+
+        let mut controller_service = controller_service::ControllerService::new(events, controller);
+        controller_service.run().await
+    }
+
+    spawner.spawn(command_router_task()).unwrap();
+
+    spawner.spawn(controller_service_task(cont)).unwrap();
+    //#[embassy_executor::task]
+    //async fn command_router_task(mut com_router: service_router::CommandRouter<'_>) -> ! {
+    //    com_router.run().await
+    //}
+
+    //spawner.spawn(command_router_task(com_router)).unwrap();
+
     // TODO: Spawn some tasks
     let _ = spawner;
 
     loop {
         Timer::after(Duration::from_secs(1)).await;
     }
-
     // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.0.0/examples/src/bin
 }
