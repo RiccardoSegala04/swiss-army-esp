@@ -102,6 +102,8 @@ where
 {
     fn run(&mut self, display: &mut impl Display<D>) {
 
+        self.sel_idx = (self.sel_idx + 1)%4;
+
         // Loop which handles events, generates commands, and draws on the screen
         
         self.draw(display);

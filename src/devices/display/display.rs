@@ -19,7 +19,7 @@ where
         Ok(())
     }
 
-    fn clear(&mut self) -> Result<(), D::Error>;
+    fn clear(&mut self, color: D::Color) -> Result<(), D::Error>;
     fn flush(&mut self);
 }
 

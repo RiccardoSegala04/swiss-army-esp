@@ -90,6 +90,8 @@ impl<'a> IrRxView<'a> {
         D: DrawTarget<Color = BinaryColor>,
     {
 
+        display.clear(self.style.color_bg);
+
         let bar = Rectangle::new(
             Point::new(0, 0),
             Size::new(128, 16),
@@ -105,6 +107,7 @@ impl<'a> IrRxView<'a> {
         );
 
         display.draw(&title);
+        display.flush();
     }
 }
 
