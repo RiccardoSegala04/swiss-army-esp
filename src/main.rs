@@ -6,13 +6,11 @@
     holding buffers for the duration of a data transfer."
 )]
 
+use defmt::info;
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
-use esp_hal::clock::CpuClock;
 use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig};
 use esp_hal::peripherals::Peripherals;
-use lazy_static::lazy_static;
-use once_cell::sync::Lazy;
 
 use esp_hal::timer::timg::TimerGroup;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
@@ -54,11 +52,13 @@ esp_bootloader_esp_idf::esp_app_desc!();
 #[esp_rtos::main]
 async fn main(spawner: Spawner) -> ! {
     // generator version: 1.0.1
+    rtt_target::rtt_init_defmt!();
 
-    let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
+    // let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
+    let config = esp_hal::Config::default();
     let peripherals = esp_hal::init(config);
 
-    esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 98768);
+    esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 73744);
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0);
@@ -71,8 +71,8 @@ async fn main(spawner: Spawner) -> ! {
     let i2c_config = I2cConfig::default().with_frequency(Rate::from_khz(400));
     let i2c = I2c::new(peripherals.I2C0, i2c_config)
         .unwrap()
-        .with_scl(peripherals.GPIO32)
-        .with_sda(peripherals.GPIO33)
+        .with_scl(peripherals.GPIO15)
+        .with_sda(peripherals.GPIO16)
         .into_async();
     let interface = I2CDisplayInterface::new(i2c);
     let mut target = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
@@ -93,6 +93,8 @@ async fn main(spawner: Spawner) -> ! {
     let mut ir_rx_view = IrRxView::with_style(&style);
 
     let _ = spawner;
+
+    info!("Palle");
 
     loop {
         // listview.run(&mut display);

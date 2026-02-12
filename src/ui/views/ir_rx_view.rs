@@ -83,6 +83,8 @@ impl<'a> IrRxView<'a> {
             display.draw(btn);
         }
 
+        display.flush();
+
     }
 
     fn draw_top_bar<D>(&self, display: &mut impl Display<D>)
@@ -107,7 +109,6 @@ impl<'a> IrRxView<'a> {
         );
 
         display.draw(&title);
-        display.flush();
     }
 }
 
