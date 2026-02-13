@@ -27,6 +27,29 @@ where
         if version != 20 {
             return Err(CC1101Error::InvalidVersion(version));
         }
+        chip.write_reg(Register::IOCFG0, 0x06).await?; // GDO0 output pin config: Asserted when sync word is sent/received, and de-asserted at the end of the packet
+        //
+        chip.write_reg(Register::FIFOTHR, 0x4F).await?; // The "F" 0b1111 ensures that GDO0 assrets only if a full packet is received
+        chip.write_reg(Register::MDMCFG3, 0x83).await?;
+        chip.write_reg(Register::MCSM0, 0x18).await?;
+        chip.write_reg(Register::FOCCFG, 0x16).await?;
+        chip.write_reg(Register::AGCCTRL2, 0x43).await?;
+        chip.write_reg(Register::WORCTRL, 0xFB).await?;
+        chip.write_reg(Register::FSCAL3, 0xE9).await?;
+        chip.write_reg(Register::FSCAL2, 0x2A).await?;
+        chip.write_reg(Register::FSCAL1, 0x00).await?;
+        chip.write_reg(Register::FSCAL0, 0x1F).await?;
+        chip.write_reg(Register::TEST2, 0x81).await?;
+        chip.write_reg(Register::TEST1, 0x35).await?;
+        chip.write_reg(Register::TEST0, 0x09).await?;
+
+        // max pkt size = 61. Dealing with larger packets is hard
+        // and given the higher possibility of crc errors
+        // probably not worth the effort. Generally the packets should be as
+        // short as possible
+        chip.write_reg(Register::PKTLEN, 61).await?; // 0x3D
+        chip.write_reg(Register::MCSM1, 0x30).await?; // CCA enabled TX->IDLE RX->IDLE
+        //
 
         Ok(Self { chip: chip })
     }
