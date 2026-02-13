@@ -37,8 +37,8 @@ use services::infrared::InfraredService;
 
 
 use esp_hal::ledc::{self, Ledc, LSGlobalClkSource, LowSpeed}; 
-use esp_hal::ledc::channel::{self, ChannelHW, ChannelIFace, Number as ChannelNumber, config::{Config as ChannelConfig}};
-use esp_hal::ledc::timer::{self, Number as TimerNumber, TimerIFace, config::{Config as TimerConfig}};
+use esp_hal::ledc::channel::{self, ChannelIFace};
+use esp_hal::ledc::timer::{self, TimerIFace};
 
 use esp_hal::i2c::master::I2c;
 use esp_hal::{i2c::master::Config as I2cConfig, time::Rate};
