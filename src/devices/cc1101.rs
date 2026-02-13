@@ -1,6 +1,5 @@
+use crate::devices::cc1101_driver::{CC1101Driver, Register, State, StatusReg, StrobeCmd};
 use embedded_hal_async::spi::SpiDevice;
-
-use crate::devices::cc1101_driver::{CC1101Driver, Register, StatusReg, StrobeCmd};
 use embedded_time::rate;
 
 pub struct CC1101<SPId> {
@@ -10,7 +9,6 @@ pub struct CC1101<SPId> {
 pub enum CC1101Error<SPIe> {
     Spi(SPIe),
     InvalidVersion(u8),
-    InvalidState(u8),
 }
 
 impl<E> From<E> for CC1101Error<E> {
@@ -39,12 +37,7 @@ where
         loop {
             let current = self.chip.strobe_cmd(StrobeCmd::SNOP).await?;
             if current == previous {
-                let raw = (current >> 4) & 0b111;
-                if let Ok(state) = State::try_from(raw) {
-                    return Ok(state);
-                } else {
-                    return Err(CC1101Error::InvalidState(raw));
-                }
+                return Ok(current.state());
             }
             previous = current;
         }
@@ -98,35 +91,5 @@ where
             .write_reg(Register::SYNC1, ((word >> 8) & 0xFF) as u8)
             .await?;
         Ok(())
-    }
-}
-
-#[derive(PartialEq)]
-pub enum State {
-    Idle = 0b000,
-    Rx = 0b001,
-    Tx = 0b010,
-    FsTxOn = 0b011,
-    Calibrate = 0b100,
-    PllSettling = 0b101,
-    RxFifoUnderflow = 0b110,
-    TxFifoUnderflow = 0b111,
-}
-
-impl TryFrom<u8> for State {
-    type Error = ();
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0b000 => Ok(State::Idle),
-            0b001 => Ok(State::Rx),
-            0b010 => Ok(State::Tx),
-            0b011 => Ok(State::FsTxOn),
-            0b100 => Ok(State::Calibrate),
-            0b101 => Ok(State::PllSettling),
-            0b110 => Ok(State::RxFifoUnderflow),
-            0b111 => Ok(State::TxFifoUnderflow),
-            _ => Err(()),
-        }
     }
 }

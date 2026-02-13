@@ -1,3 +1,4 @@
+use bitfield_struct::bitfield;
 use embedded_hal_async::spi::{
     Operation::{Read, Transfer, Write},
     SpiDevice,
@@ -77,7 +78,7 @@ where
         Ok(value[0])
     }
 
-    pub async fn strobe_cmd(&mut self, cmd: StrobeCmd) -> Result<u8, <SPId>::Error> {
+    pub async fn strobe_cmd(&mut self, cmd: StrobeCmd) -> Result<StatusByte, <SPId>::Error> {
         let command = cmd as u8;
         let mut reply = [0u8];
         self.cc1101_spi
@@ -85,7 +86,7 @@ where
                 Transfer(&mut reply, &[command]), //
             ])
             .await?;
-        Ok(reply[0])
+        Ok(StatusByte::from_bits(reply[0]))
     }
 
     pub async fn set_reg_bit(&mut self, active: bool, reg: Register) -> Result<(), <SPId>::Error> {
@@ -204,6 +205,51 @@ pub enum StrobeCmd {
     SWORRST = 0x3C, // Reset real time clock.
     SNOP = 0x3D,    // No operation. May be used to pad strobe commands to two
                     // INT8Us for simpler software.
+}
+
+#[repr(u8)]
+#[derive(Debug, PartialEq, Eq)]
+pub enum State {
+    Idle = 0b000,
+    Rx = 0b001,
+    Tx = 0b010,
+    FsTxOn = 0b011,
+    Calibrate = 0b100,
+    PllSettling = 0b101,
+    RxFifoUnderflow = 0b110,
+    TxFifoUnderflow = 0b111,
+}
+
+impl State {
+    const fn into_bits(self) -> u8 {
+        self as _
+    }
+    const fn from_bits(value: u8) -> Self {
+        match value {
+            0b000 => Self::Idle,
+            0b001 => Self::Rx,
+            0b010 => Self::Tx,
+            0b011 => Self::FsTxOn,
+            0b100 => Self::Calibrate,
+            0b101 => Self::PllSettling,
+            0b110 => Self::RxFifoUnderflow,
+            0b111 => Self::TxFifoUnderflow,
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[bitfield(u8)]
+#[derive(PartialEq, Eq)]
+pub struct StatusByte {
+    /// The first field occupies the least significant bits
+    #[bits(4)]
+    pub fifo_bytes: u8,
+    /// Booleans are 1 bit large
+    #[bits(3)]
+    pub state: State,
+    /// The bits attribute specifies the bit size of this f
+    pub ready: bool,
 }
 
 #[repr(u8)]
