@@ -34,7 +34,7 @@ where
         }
     }
 
-    pub fn commands_sender() -> DynamicSender<'static, ControllerCommand> {
+    pub fn command_sender() -> DynamicSender<'static, ControllerCommand> {
         CONTROLLER_COMMANDS_CHANNEL.dyn_sender()
     }
 

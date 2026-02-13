@@ -1801,6 +1801,7 @@ dependencies = [
  "esp-hal",
  "esp-radio",
  "esp-rtos",
+ "heapless 0.9.2",
  "rtt-target",
  "smoltcp",
  "ssd1306",

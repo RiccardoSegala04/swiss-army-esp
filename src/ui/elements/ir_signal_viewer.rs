@@ -11,7 +11,7 @@ use crate::devices::ir::IrSignal;
 use crate::ui::Style;
 
 pub struct IrSignalViewer<'a> {
-    signal: Option<IrSignal<'a>>,
+    signal: Option<IrSignal>,
     selected: bool,
     center: Point,
     size: Size, // bounding box for highlighting
@@ -19,7 +19,7 @@ pub struct IrSignalViewer<'a> {
 }
 
 impl<'a> IrSignalViewer<'a> {
-    pub fn new(style: &'a Style, signal: Option<IrSignal<'a>>, center: Point, size: Size) -> Self {
+    pub fn new(style: &'a Style, signal: Option<IrSignal>, center: Point, size: Size) -> Self {
         Self {
             signal,
             selected: false,
@@ -41,7 +41,7 @@ impl<'a> IrSignalViewer<'a> {
         self.selected
     }
 
-    pub fn set_signal(&mut self, signal: IrSignal<'a>) {
+    pub fn set_signal(&mut self, signal: IrSignal) {
         self.signal = Some(signal);
     }
 
@@ -61,7 +61,7 @@ impl<'a> IrSignalViewer<'a> {
             let len = signal.timings.len();
             let pulse_base = center.y + size.height as i32 / 2;
 
-            for pulse in signal.timings {
+            for pulse in &signal.timings {
                 let scaled = ((*pulse as f32 / min as f32) * 2.0) as i32;
 
                 let vert = Line::new(

@@ -5,6 +5,7 @@ use embedded_graphics::{
     text::Text,
 };
 
+use heapless::Vec;
 
 use super::view::{Viewable, ViewContext};
 
@@ -13,7 +14,10 @@ use crate::ui::elements::Button;
 use crate::ui::elements::IrSignalViewer;
 
 use crate::devices::display::Display;
-use crate::devices::ir::IrSignal;
+use crate::devices::ir::{IrSignal, InfraredCommand};
+use crate::devices::controller::{ControllerEvent};
+
+use crate::services::router::{RouterEvent, RouterCommand};
 
 
 static SAMPLE_TIMINGS: &[u16] = &[
@@ -21,19 +25,13 @@ static SAMPLE_TIMINGS: &[u16] = &[
     9000, 4500, // Address 0x00FF = 0000 0000 1111 1111 (LSB first)
     560, 560, 560, 560, 560, 560, 560, 560, // 0
     560, 560, 560, 560, 560, 560, 560, 560, // 0
-    560, 1690, 560, 1690, 560, 1690, 560, 1690, // 1
-    560, 1690, 560, 1690, 560, 1690, 560, 1690, // 1
-    // Command 0x20DF = 0010 0000 1101 1111 (LSB first)
-    560, 560, 560, 560, 560, 1690, 560, 560, // 0010
-    560, 560, 560, 560, 560, 560, 560, 560, // 0000
-    560, 1690, 560, 1690, 560, 560, 560, 1690, // 1101
     560, 1690, 560, 1690, 560, 1690, 560, 1690, // 1111
     // Repeat bit (optional in NEC protocol)
     560, 1690,
 ];
 pub struct IrRxView<'a> {
     title: &'a str,
-    last_signal: Option<IrSignal<'a>>,
+    last_signal: Option<IrSignal>,
 
     buttons: [Button<'a>; 2],
     signal_viewer: IrSignalViewer<'a>,
@@ -46,7 +44,7 @@ impl<'a> IrRxView<'a> {
         Self {
             title: "IR RX",
             last_signal: Some(IrSignal {
-                timings: SAMPLE_TIMINGS,
+                timings: Vec::new(),
             }),
             buttons: [
                 Button::new(style, "RECORD", Point::new(33, 53), Size::new(57, 13)),
@@ -109,7 +107,24 @@ where
             self.signal_viewer.select();
         }
 
-        self.draw(context.display)
+        loop {
+            
+            let ev = context.receiver.receive().await;
+
+            match ev {
+                RouterEvent::ControllerEvent(ev) => {
+                    match ev {
+                        ControllerEvent::NavNextPressed => context.sender.send(RouterCommand::InfraredCommand(InfraredCommand::Listen)).await,
+                        _ => {}
+                    }
+                },
+                _ => {}
+            };
+
+
+            self.draw(context.display)?;
+        }
+
     }
 
     fn title(&self) -> &str {

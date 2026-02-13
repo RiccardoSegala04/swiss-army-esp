@@ -7,9 +7,9 @@ use crate::devices::display::Display;
 use super::dummy_view::DummyView;
 use super::list_view::ListView;
 
-use crate::services::router::{RouterEvent};
+use crate::services::router::{RouterEvent, RouterCommand};
 
-use embassy_sync::channel::{DynamicReceiver};
+use embassy_sync::channel::{DynamicReceiver, DynamicSender};
 
 pub struct ViewContext<'a, D>
 where
@@ -17,16 +17,18 @@ where
 {
     pub display: &'a mut D,
     pub receiver: DynamicReceiver<'static, RouterEvent>,
+    pub sender: DynamicSender<'static, RouterCommand>,
 }
 
 impl<'a, D> ViewContext<'a, D>
 where
     D: Display
 {
-    pub fn new(display: &'a mut D, receiver: DynamicReceiver<'static, RouterEvent>) -> Self {
+    pub fn new(display: &'a mut D, receiver: DynamicReceiver<'static, RouterEvent>, sender: DynamicSender<'static, RouterCommand>) -> Self {
         Self {
             display,
-            receiver
+            receiver,
+            sender
         }       
     }
 }

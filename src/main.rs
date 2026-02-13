@@ -12,7 +12,7 @@
 
 use defmt::info;
 use embassy_executor::{Spawner, task};
-use esp_hal::gpio::{Input, InputConfig, Pull};
+use esp_hal::gpio::{Input, InputConfig, Pull, DriveMode, Output, OutputConfig, Level};
 
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
@@ -20,6 +20,7 @@ use esp_hal::timer::timg::TimerGroup;
 
 mod devices;
 use devices::Controller;
+use devices::ir::Infrared;
 use devices::display::DisplaySsd1306;
 
 mod ui;
@@ -31,7 +32,13 @@ use ui::views::view::{Viewable, ViewContext};
 
 mod services;
 use services::controller::ControllerService;
-use services::router::RouterEvent;
+use services::router::{RouterEvent, RouterService};
+use services::infrared::InfraredService;
+
+
+use esp_hal::ledc::{self, Ledc, LSGlobalClkSource, LowSpeed}; 
+use esp_hal::ledc::channel::{self, ChannelHW, ChannelIFace, Number as ChannelNumber, config::{Config as ChannelConfig}};
+use esp_hal::ledc::timer::{self, Number as TimerNumber, TimerIFace, config::{Config as TimerConfig}};
 
 use esp_hal::i2c::master::I2c;
 use esp_hal::{i2c::master::Config as I2cConfig, time::Rate};
@@ -51,7 +58,41 @@ esp_bootloader_esp_idf::esp_app_desc!();
 static EVENT_CHANNEL: Channel<CriticalSectionRawMutex, RouterEvent, 8> = Channel::new();
 
 #[task]
+pub async fn router_task(mut service: RouterService<'static>) {
+    loop {
+        service.run().await;
+    }
+}
+
+#[task]
 pub async fn controller_task(mut service: ControllerService<Input<'static>>) {
+    loop {
+        service.run().await;
+    }
+}
+
+
+#[task]
+pub async fn infrared_task(led: Output<'static>, mut ledc: Ledc<'static>) {
+
+    ledc.set_global_slow_clock(LSGlobalClkSource::APBClk);
+
+    let mut lstimer0 = ledc.timer::<LowSpeed>(timer::Number::Timer0);
+    lstimer0.configure(timer::config::Config {
+        duty: timer::config::Duty::Duty5Bit,
+        clock_source: timer::LSClockSource::APBClk,
+        frequency: Rate::from_khz(38),
+    });
+
+    let mut channel0 = ledc.channel(channel::Number::Channel0, led);
+    channel0.configure(channel::config::Config {
+        timer: &lstimer0,
+        duty_pct: 10,
+        drive_mode: DriveMode::PushPull,
+    });
+
+    let ir = Infrared::new(channel0);
+    let mut service = InfraredService::new(EVENT_CHANNEL.dyn_sender(), ir);
     loop {
         service.run().await;
     }
@@ -89,16 +130,6 @@ async fn main(spawner: Spawner) -> ! {
         ),
     );
 
-    let controller_service = ControllerService::new(EVENT_CHANNEL.dyn_sender(), controller);
-
-    info!("Starting Controller Task");
-    spawner.spawn(controller_task(controller_service)).unwrap();
-
-    // let radio_init = esp_radio::init().expect("Failed to initialize Wi-Fi/BLE controller");
-    // let (mut _wifi_controller, _interfaces) =
-    //     esp_radio::wifi::new(&radio_init, peripherals.WIFI, Default::default())
-    //         .expect("Failed to initialize Wi-Fi controller");
-
     let i2c_config = I2cConfig::default().with_frequency(Rate::from_khz(400));
     let i2c = I2c::new(peripherals.I2C0, i2c_config)
         .unwrap()
@@ -111,6 +142,33 @@ async fn main(spawner: Spawner) -> ! {
     target.init().unwrap();
 
     let mut display = DisplaySsd1306::new(target);
+
+    let led = Output::new(peripherals.GPIO8, Level::High, OutputConfig::default());
+
+    let mut ledc = Ledc::new(peripherals.LEDC);
+
+    let controller_service = ControllerService::new(EVENT_CHANNEL.dyn_sender(), controller);
+
+    let router_service = RouterService::new(ControllerService::<Input>::command_sender(), InfraredService::<ledc::channel::Channel<'static, LowSpeed>>::command_sender());
+
+    let receiver = EVENT_CHANNEL.dyn_receiver();
+    let mut ctx = ViewContext::new(&mut display, receiver, RouterService::command_sender());
+
+    info!("Starting Router Task");
+    spawner.spawn(router_task(router_service)).unwrap();
+
+
+    info!("Starting Controller Task");
+    spawner.spawn(controller_task(controller_service)).unwrap();
+    info!("Starting Infrared Task");
+    spawner.spawn(infrared_task(led, ledc)).unwrap();
+
+
+    // let radio_init = esp_radio::init().expect("Failed to initialize Wi-Fi/BLE controller");
+    // let (mut _wifi_controller, _interfaces) =
+    //     esp_radio::wifi::new(&radio_init, peripherals.WIFI, Default::default())
+    //         .expect("Failed to initialize Wi-Fi controller");
+
     let style = Style::normal();
 
     let mut views = [
@@ -123,15 +181,16 @@ async fn main(spawner: Spawner) -> ! {
 
     let mut ir_rx_view = IrRxView::with_style(&style);
 
-    let receiver = EVENT_CHANNEL.dyn_receiver();
 
     info!("Starting ListView");
 
-    let mut ctx = ViewContext::new(&mut display, receiver);
 
-    listview.run(&mut ctx).await.unwrap();
+    // listview.run(&mut ctx).await.unwrap();
 
-    loop {}
+    loop {
+        ir_rx_view.run(&mut ctx).await.unwrap();
+        
+    }
 
     // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.0.0/examples/src/bin
 }

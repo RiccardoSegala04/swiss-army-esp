@@ -122,7 +122,8 @@ where
                         ControllerEvent::NavPrevPressed => self.sel_idx = (self.sel_idx + 3) % 4,
                         _ => {}
                     };
-                }
+                },
+                _ => {}
             };
 
             self.draw(context.display)?;
