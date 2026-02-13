@@ -3,6 +3,9 @@
 use defmt::info;
 
 use embedded_hal::pwm::SetDutyCycle;
+use embedded_hal::digital::InputPin;
+
+use embedded_hal_async::digital::Wait;
 
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::{self, DynamicReceiver, DynamicSender};
@@ -16,18 +19,19 @@ pub static INFRARED_COMMANDS_CHANNEL: channel::Channel<
     1,
 > = channel::Channel::new();
 
-pub struct InfraredService<PWM> {
+pub struct InfraredService<PWM, InPin> {
     commands_receiver: DynamicReceiver<'static, InfraredCommand>,
     events_sender: DynamicSender<'static, RouterEvent>,
-    ir: Infrared<PWM>,
+    ir: Infrared<PWM, InPin>,
 }
 
-impl<PWM> InfraredService<PWM>
+impl<PWM, InPin> InfraredService<PWM, InPin>
 where
-    PWM: SetDutyCycle
+    PWM: SetDutyCycle,
+    InPin: InputPin + Wait
 {
 
-    pub fn new(events_sender: DynamicSender<'static, RouterEvent>, ir: Infrared<PWM>) -> Self {
+    pub fn new(events_sender: DynamicSender<'static, RouterEvent>, ir: Infrared<PWM, InPin>) -> Self {
         Self {
             commands_receiver: INFRARED_COMMANDS_CHANNEL.dyn_receiver(),
             events_sender,
@@ -46,7 +50,14 @@ where
                 InfraredCommand::Play(sig) => {
                     self.ir.transmit(&sig).await;
                 },
-                _ => {}
+                InfraredCommand::Listen => {
+                    info!("Start listening");
+                    if let Some(signal) = self.ir.listen().await {
+                        self.send_event(InfraredEvent::Signal(signal)).await;
+                        info!("Signal event sended");
+                    }                    
+
+                },
             }  
         }
     }

@@ -16,7 +16,7 @@ use crate::ui::elements::Button;
 use crate::ui::elements::IrSignalViewer;
 
 use crate::devices::display::Display;
-use crate::devices::ir::{IrSignal, InfraredCommand};
+use crate::devices::ir::{IrSignal, InfraredCommand, InfraredEvent};
 use crate::devices::controller::{ControllerEvent};
 
 use crate::services::router::{RouterEvent, RouterCommand};
@@ -46,9 +46,7 @@ impl<'a> IrRxView<'a> {
     pub fn with_style(style: &'a Style) -> Self {
         Self {
             title: "IR RX",
-            last_signal: Some(IrSignal {
-                timings: Vec::from_slice(&SAMPLE_TIMINGS).unwrap(),
-            }),
+            last_signal: Some(IrSignal::new()),
             buttons: [
                 Button::new(style, "RECORD", Point::new(33, 53), Size::new(57, 13)),
                 Button::new(style, "REPLAY", Point::new(94, 53), Size::new(57, 13)),
@@ -105,13 +103,10 @@ where
         context: &mut ViewContext<'_, D>
     ) -> Result<(), <D::Target as DrawTarget>::Error> {
 
-        if let Some(signal) = &self.last_signal {
-            self.signal_viewer.set_signal(signal.clone());
-            self.signal_viewer.select();
-        }
 
         loop {
             
+
             self.draw(context.display)?;
 
             let ev = context.receiver.receive().await;
@@ -122,14 +117,26 @@ where
                         ControllerEvent::NavNextPressed => {
                             if let Some(signal) = &self.last_signal {
                                 context.sender.send(RouterCommand::InfraredCommand(InfraredCommand::Play(signal.clone()))).await;
-                                info!("Transmitted");
-                            } else {
-                                info!("No transmission saved")
-                            }
+                            } 
+                        },
+                        ControllerEvent::NavPrevPressed => {
+                            context.sender.send(RouterCommand::InfraredCommand(InfraredCommand::Listen)).await;
                         },
                         _ => {}
                     }
                 },
+                RouterEvent::InfraredEvent(ev) => {
+                    match ev {
+                        InfraredEvent::Signal(sig) => {
+
+                            self.signal_viewer.set_signal(sig.clone());
+
+                            self.last_signal = Some(sig);
+
+                        },
+                        _ => {}
+                    }
+                }
                 _ => {}
             };
 

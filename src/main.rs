@@ -14,6 +14,9 @@ use defmt::info;
 use embassy_executor::{Spawner, task};
 use esp_hal::gpio::{Input, InputConfig, Pull, DriveMode, Output, OutputConfig, Level};
 
+use embedded_hal::digital::InputPin;
+use embedded_hal_async::digital::Wait;
+
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
 use esp_hal::timer::timg::TimerGroup;
@@ -73,7 +76,7 @@ pub async fn controller_task(mut service: ControllerService<Input<'static>>) {
 
 
 #[task]
-pub async fn infrared_task(led: Output<'static>, mut ledc: Ledc<'static>) {
+pub async fn infrared_task(led: Output<'static>, mut ledc: Ledc<'static>, rx: Input<'static>) {
 
     ledc.set_global_slow_clock(LSGlobalClkSource::APBClk);
 
@@ -91,7 +94,9 @@ pub async fn infrared_task(led: Output<'static>, mut ledc: Ledc<'static>) {
         drive_mode: DriveMode::PushPull,
     });
 
-    let ir = Infrared::new(channel0);
+    let ir = Infrared::new(channel0, rx);
+
+    
     let mut service = InfraredService::new(EVENT_CHANNEL.dyn_sender(), ir);
     loop {
         service.run().await;
@@ -144,12 +149,13 @@ async fn main(spawner: Spawner) -> ! {
     let mut display = DisplaySsd1306::new(target);
 
     let led = Output::new(peripherals.GPIO8, Level::High, OutputConfig::default());
+    let ir_rx = Input::new(peripherals.GPIO3, InputConfig::default());
 
     let mut ledc = Ledc::new(peripherals.LEDC);
 
     let controller_service = ControllerService::new(EVENT_CHANNEL.dyn_sender(), controller);
 
-    let router_service = RouterService::new(ControllerService::<Input>::command_sender(), InfraredService::<ledc::channel::Channel<'static, LowSpeed>>::command_sender());
+    let router_service = RouterService::new(ControllerService::<Input>::command_sender(), InfraredService::<ledc::channel::Channel<'static, LowSpeed>, Input>::command_sender());
 
     let receiver = EVENT_CHANNEL.dyn_receiver();
     let mut ctx = ViewContext::new(&mut display, receiver, RouterService::command_sender());
@@ -157,11 +163,10 @@ async fn main(spawner: Spawner) -> ! {
     info!("Starting Router Task");
     spawner.spawn(router_task(router_service)).unwrap();
 
-
     info!("Starting Controller Task");
     spawner.spawn(controller_task(controller_service)).unwrap();
     info!("Starting Infrared Task");
-    spawner.spawn(infrared_task(led, ledc)).unwrap();
+    spawner.spawn(infrared_task(led, ledc, ir_rx)).unwrap();
 
 
     // let radio_init = esp_radio::init().expect("Failed to initialize Wi-Fi/BLE controller");

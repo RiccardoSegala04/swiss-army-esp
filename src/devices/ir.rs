@@ -4,7 +4,13 @@ use defmt::info;
 
 use embedded_hal::pwm::SetDutyCycle;
 
-use embassy_time::{Duration, Timer};
+use embassy_time::{Duration, Timer, Instant};
+
+use embassy_futures::select::{select, Either};
+
+use embedded_hal_async::digital::Wait;
+
+use embedded_hal::digital::InputPin;
 
 pub enum InfraredCommand {
     Listen,
@@ -17,20 +23,37 @@ pub enum InfraredEvent {
 
 #[derive(Clone)]
 pub struct IrSignal {
-    pub timings: Vec<u16, 128>
+    pub timings: Vec<u16, 512>,
+    level_high: bool
 }
 
-pub struct Infrared<PWM> {
-    tx: PWM
+impl IrSignal {
+    pub fn new() -> Self {
+        Self { timings: Vec::new(), level_high: true }
+    }
+
+    pub fn with_timings(timings: Vec<u16, 512>) -> Self {
+        Self { timings: timings, level_high: true }
+    }
+
+    fn push_timing(&mut self, timing: u16) -> Result<(), u16> {
+        self.timings.push(timing)
+    }
 }
 
-impl<PWM> Infrared<PWM>
+pub struct Infrared<PWM, InPin> {
+    tx: PWM,
+    rx: InPin
+}
+
+impl<PWM, InPin> Infrared<PWM, InPin>
 where
-    PWM: SetDutyCycle
+    PWM: SetDutyCycle,
+    InPin: InputPin + Wait
 {
-    pub fn new(mut tx: PWM) -> Self {
+    pub fn new(mut tx: PWM, rx: InPin) -> Self {
         tx.set_duty_cycle_fully_off();
-        Self { tx }
+        Self { tx, rx }
     }
 
     fn tx_on(&mut self) {
@@ -61,7 +84,47 @@ where
 
         self.tx_off();
     }
-   
+
+    pub async fn listen(&mut self) -> Option<IrSignal> {
+        let mut signal = IrSignal::new();
+        let mut last_edge: Option<Instant> = None;
+
+        let mut timeout = Timer::after(Duration::from_millis(2000));
+
+        loop {
+            let rising = self.rx.wait_for_any_edge();
+
+            match select(timeout, rising).await {
+                Either::First(_) => {
+                    break;
+                }
+                Either::Second(_) => {
+
+                    last_edge = match last_edge {
+                        None => Some(Instant::now()),
+                        Some(last_edge) => {
+                            
+                            let now = Instant::now();
+                            let delta = now - last_edge;
+
+                            match signal.push_timing(delta.as_micros().try_into().unwrap()) {
+                                Err(_) => {
+                                    return None;
+                                },
+                                Ok(()) => {},
+                            };
+
+                            Some(now)
+                        }
+                    };
+                }
+            }
+
+            timeout = Timer::after(Duration::from_millis(50));
+        }
+
+        Some(signal)
+    }
 }
 
 
