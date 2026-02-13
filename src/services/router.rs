@@ -1,5 +1,5 @@
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::channel::{self, Sender};
+use embassy_sync::channel;
 use embassy_sync::channel::{DynamicReceiver, DynamicSender};
 
 use crate::devices::controller;
@@ -23,13 +23,13 @@ pub struct RouterService<'a> {
 impl<'a> RouterService<'a> {
     pub fn new(controller_channel: DynamicSender<'static, controller::ControllerCommand>) -> Self {
         Self {
-            router_channel: COMMANDS_CHANNEL.receiver_dyn(),
+            router_channel: COMMANDS_CHANNEL.dyn_receiver(),
             controller_channel,
         }
     }
 
-    pub fn command_sender(&self) -> Sender<'_, CriticalSectionRawMutex, RouterCommand> {
-        COMMANDS_CHANNEL.sender_dyn()
+    pub fn command_sender(&self) -> DynamicSender<'_, RouterCommand> {
+        COMMANDS_CHANNEL.dyn_sender()
     }
 
     pub async fn run(&mut self) -> ! {
