@@ -1,6 +1,5 @@
 use embedded_graphics::{
-    draw_target::DrawTarget,
-    pixelcolor::BinaryColor,
+    draw_target::DrawTarget
 };
 
 use crate::devices::display::Display;
@@ -12,12 +11,35 @@ use crate::services::router::{RouterEvent};
 
 use embassy_sync::channel::{DynamicReceiver};
 
-pub trait Viewable<D: DrawTarget<Color = BinaryColor>> {
+pub struct ViewContext<'a, D>
+where
+    D: Display,
+{
+    pub display: &'a mut D,
+    pub receiver: DynamicReceiver<'static, RouterEvent>,
+}
+
+impl<'a, D> ViewContext<'a, D>
+where
+    D: Display
+{
+    pub fn new(display: &'a mut D, receiver: DynamicReceiver<'static, RouterEvent>) -> Self {
+        Self {
+            display,
+            receiver
+        }       
+    }
+}
+
+pub trait Viewable<D>
+where
+    D: Display
+{
     async fn run(
         &mut self,
-        display: &mut impl Display<D>,
-        receiver: DynamicReceiver<'static, RouterEvent>,
-    ) -> Result<(), D::Error>;
+        context: &mut ViewContext<D>
+    ) -> Result<(), <D::Target as DrawTarget>::Error>;
+
     fn title(&self) -> &str;
 }
 
@@ -28,16 +50,16 @@ pub enum ViewType<'a> {
 
 impl<'a, D> Viewable<D> for ViewType<'a>
 where
-    D: DrawTarget<Color = BinaryColor>,
+    D: Display,
 {
     async fn run(
         &mut self,
-        display: &mut impl Display<D>,
-        receiver: DynamicReceiver<'static, RouterEvent>,
-    ) -> Result<(), D::Error> {
+        context: &mut ViewContext<'_, D>
+    ) -> Result<(), <D::Target as DrawTarget>::Error> {
+        
         match self {
-            ViewType::ListView(v) => v.run(display, receiver).await?,
-            ViewType::DummyView(v) => v.run(display, receiver).await?,
+            ViewType::ListView(v) => v.run(context).await?,
+            ViewType::DummyView(v) => v.run(context).await?,
         };
 
         Ok(())

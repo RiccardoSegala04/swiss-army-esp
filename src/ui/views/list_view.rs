@@ -9,7 +9,7 @@ use crate::services::router::RouterEvent;
 use crate::devices::controller::ControllerEvent;
 use crate::devices::display::Display;
 
-use super::view::{ViewType, Viewable};
+use super::view::{ViewType, Viewable, ViewContext};
 
 use crate::ui::Style;
 
@@ -44,9 +44,9 @@ impl<'a> ListView<'a> {
         }
     }
 
-    pub fn draw<D>(&mut self, display: &mut impl Display<D>) -> Result<(), D::Error>
+    pub fn draw<D>(&mut self, display: &mut D) -> Result<(), <D::Target as DrawTarget>::Error>
     where
-        D: DrawTarget<Color = BinaryColor>,
+        D: Display
     {
         display.clear(self.style.color_bg)?;
 
@@ -58,9 +58,9 @@ impl<'a> ListView<'a> {
         Ok(())
     }
 
-    fn draw_top_bar<D>(&self, display: &mut impl Display<D>) -> Result<(), D::Error>
+    fn draw_top_bar<D>(&self, display: &mut D) -> Result<(), <D::Target as DrawTarget>::Error>
     where
-        D: DrawTarget<Color = BinaryColor>,
+        D: Display
     {
         let bar = Rectangle::new(
             Point::new(0, 0),
@@ -81,9 +81,9 @@ impl<'a> ListView<'a> {
         Ok(())
     }
 
-    fn draw_list<D>(&mut self, display: &mut impl Display<D>) -> Result<(), D::Error>
+    fn draw_list<D>(&mut self, display: &mut D) -> Result<(), <D::Target as DrawTarget>::Error>
     where
-        D: DrawTarget<Color = BinaryColor>,
+        D: Display
     {
         let sel_idx = self.sel_idx;
         let hpad = self.hpad;
@@ -104,17 +104,17 @@ impl<'a> ListView<'a> {
 
 impl<'a, D> Viewable<D> for ListView<'a>
 where
-    D: DrawTarget<Color = BinaryColor>,
+    D: Display,
 {
     async fn run(
         &mut self,
-        display: &mut impl Display<D>,
-        receiver: DynamicReceiver<'static, RouterEvent>,
-    ) -> Result<(), D::Error> {
-        self.draw(display)?;
+        context: &mut ViewContext<'_, D>
+    ) -> Result<(), <D::Target as DrawTarget>::Error> {
+
+        self.draw(context.display)?;
 
         loop {
-            let ev = receiver.receive().await;
+            let ev = context.receiver.receive().await;
 
             match ev {
                 RouterEvent::ControllerEvent(ev) => {
@@ -126,7 +126,7 @@ where
                 }
             };
 
-            self.draw(display)?;
+            self.draw(context.display)?;
         }
     }
 
@@ -136,39 +136,39 @@ where
 }
 
 fn draw_marker<D>(
-    display: &mut impl Display<D>,
+    display: &mut D,
     idx: usize,
     sel_idx: usize,
     hpad: u8,
     y: i32,
     style: &Style,
-) -> Result<(), D::Error>
+) -> Result<(), <D::Target as DrawTarget>::Error>
 where
-    D: DrawTarget<Color = BinaryColor>,
+    D: Display
 {
     let base = Rectangle::new(
         Point::new(hpad as i32, y - MARKER_SIZE),
         Size::new(MARKER_SIZE as u32, MARKER_SIZE as u32),
     );
 
-    let marker = if idx == sel_idx {
-        base.into_styled(style.selected)
-    } else {
-        base.into_styled(style.deselected)
+    if idx == sel_idx {
+        let marker = base.into_styled(style.selected);
+        display.draw(&marker)?;
     };
 
-    display.draw(&marker)
+    Ok(())
+
 }
 
 fn draw_item_text<D>(
-    display: &mut impl Display<D>,
+    display: &mut D,
     element: &ViewType<'_>,
     hpad: u8,
     y: i32,
     style: &Style,
-) -> Result<(), D::Error>
+) -> Result<(), <D::Target as DrawTarget>::Error>
 where
-    D: DrawTarget<Color = BinaryColor>,
+    D: Display,
 {
     let text = Text::new(
         <ViewType<'_> as Viewable<D>>::title(element),

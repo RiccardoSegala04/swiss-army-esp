@@ -27,7 +27,7 @@ use ui::Style;
 use ui::views::DummyView;
 use ui::views::IrRxView;
 use ui::views::ListView;
-use ui::views::view::Viewable;
+use ui::views::view::{Viewable, ViewContext};
 
 mod services;
 use services::controller::ControllerService;
@@ -127,7 +127,9 @@ async fn main(spawner: Spawner) -> ! {
 
     info!("Starting ListView");
 
-    listview.run(&mut display, receiver).await.unwrap();
+    let mut ctx = ViewContext::new(&mut display, receiver);
+
+    listview.run(&mut ctx).await.unwrap();
 
     loop {}
 

@@ -7,7 +7,7 @@ use embassy_sync::channel::{DynamicReceiver};
 
 use crate::services::router::RouterEvent;
 
-use super::view::Viewable;
+use super::view::{Viewable, ViewContext};
 
 use crate::devices::display::Display;
 
@@ -23,15 +23,14 @@ impl<'a> DummyView<'a> {
 
 impl<'a, D> Viewable<D> for DummyView<'a>
 where
-    D: DrawTarget<Color = BinaryColor>,
+    D: Display,
 {
     async fn run(
         &mut self,
-        display: &mut impl Display<D>,
-        receiver: DynamicReceiver<'static, RouterEvent>,
-    ) -> Result<(), D::Error> {
-        _ = display;
-        _ = receiver;
+        context: &mut ViewContext<'_, D>
+    ) -> Result<(), <D::Target as DrawTarget>::Error> {
+
+        _ = context;
 
         Ok(())
     }

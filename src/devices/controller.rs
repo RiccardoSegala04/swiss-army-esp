@@ -60,10 +60,10 @@ where
     }
 
     pub async fn poll_events(&mut self) -> ControllerEvent {
-        let confirm = wait_for_falling_edge_debounced(&mut self.confirm, 100);
-        let back = wait_for_falling_edge_debounced(&mut self.back, 100);
-        let nav_next = wait_for_falling_edge_debounced(&mut self.nav_next, 100);
-        let nav_prev = wait_for_falling_edge_debounced(&mut self.nav_prev, 100);
+        let confirm = wait_for_falling_edge_debounced(&mut self.confirm, 10);
+        let back = wait_for_falling_edge_debounced(&mut self.back, 10);
+        let nav_next = wait_for_falling_edge_debounced(&mut self.nav_next, 10);
+        let nav_prev = wait_for_falling_edge_debounced(&mut self.nav_prev, 10);
 
         match select4(confirm, back, nav_next, nav_prev).await {
             Either4::First(_) => ControllerEvent::ConfirmPressed,

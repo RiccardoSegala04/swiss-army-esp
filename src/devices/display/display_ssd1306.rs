@@ -24,17 +24,19 @@ where
     }
 }
 
-impl<DI, SIZE> Display<Ssd1306<DI, SIZE, BufferedGraphicsMode<SIZE>>> for DisplaySsd1306<DI, SIZE>
+impl<DI, SIZE> Display for DisplaySsd1306<DI, SIZE>
 where
     DI: WriteOnlyDataCommand,
     SIZE: DisplaySize,
 {
+    type Target = Ssd1306<DI, SIZE, BufferedGraphicsMode<SIZE>>;
+
     fn draw<T>(
         &mut self,
         item: &T,
-    ) -> Result<(), <Ssd1306<DI, SIZE, BufferedGraphicsMode<SIZE>> as DrawTarget>::Error>
+    ) -> Result<(), <Self::Target as DrawTarget>::Error>
     where
-        T: Drawable<Color = <Ssd1306<DI, SIZE, BufferedGraphicsMode<SIZE>> as DrawTarget>::Color>,
+        T: Drawable<Color = BinaryColor>,
     {
         item.draw(&mut self.ssd)?;
         Ok(())
@@ -43,7 +45,7 @@ where
     fn clear(
         &mut self,
         color: BinaryColor,
-    ) -> Result<(), <Ssd1306<DI, SIZE, BufferedGraphicsMode<SIZE>> as DrawTarget>::Error> {
+    ) -> Result<(), <Self::Target as DrawTarget>::Error> {
         self.ssd.clear(color)
     }
 

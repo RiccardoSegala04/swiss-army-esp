@@ -8,7 +8,7 @@ use embedded_graphics::{
 
 use embassy_sync::channel::{DynamicReceiver};
 
-use super::view::Viewable;
+use super::view::{Viewable, ViewContext};
 
 use crate::ui::Style;
 use crate::ui::elements::Button;
@@ -60,9 +60,9 @@ impl<'a> IrRxView<'a> {
         }
     }
 
-    fn draw<D>(&self, display: &mut impl Display<D>) -> Result<(), D::Error>
+    fn draw<D>(&self, display: &mut D) -> Result<(), <D::Target as DrawTarget>::Error>
     where
-        D: DrawTarget<Color = BinaryColor>,
+        D: Display
     {
         display.clear(self.style.color_bg)?;
 
@@ -79,9 +79,9 @@ impl<'a> IrRxView<'a> {
         Ok(())
     }
 
-    fn draw_top_bar<D>(&self, display: &mut impl Display<D>) -> Result<(), D::Error>
+    fn draw_top_bar<D>(&self, display: &mut D) -> Result<(), <D::Target as DrawTarget>::Error>
     where
-        D: DrawTarget<Color = BinaryColor>,
+        D: Display
     {
         display.clear(self.style.color_bg)?;
 
@@ -99,20 +99,20 @@ impl<'a> IrRxView<'a> {
 
 impl<'a, D> Viewable<D> for IrRxView<'a>
 where
-    D: DrawTarget<Color = BinaryColor>,
+    D: Display
 {
+
     async fn run(
         &mut self,
-        display: &mut impl Display<D>,
-        receiver: DynamicReceiver<'static, RouterEvent>,
-    ) -> Result<(), D::Error> {
+        context: &mut ViewContext<'_, D>
+    ) -> Result<(), <D::Target as DrawTarget>::Error> {
 
         if let Some(signal) = &self.last_signal {
             self.signal_viewer.set_signal(signal.clone());
             self.signal_viewer.select();
         }
 
-        self.draw(display)
+        self.draw(context.display)
     }
 
     fn title(&self) -> &str {

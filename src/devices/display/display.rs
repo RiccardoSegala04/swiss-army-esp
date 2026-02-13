@@ -1,16 +1,17 @@
-use embedded_graphics::prelude::*;
 
-pub trait Display<D>
-where
-    D: DrawTarget,
+use embedded_graphics::{prelude::*, pixelcolor::BinaryColor};
+
+pub trait Display
 {
-    fn draw<T>(&mut self, item: &T) -> Result<(), D::Error>
+    type Target: DrawTarget<Color = BinaryColor>;
+    
+    fn draw<T>(&mut self, item: &T) -> Result<(), <Self::Target as DrawTarget>::Error>
     where
-        T: Drawable<Color = D::Color>;
+        T: Drawable<Color = <Self::Target as DrawTarget>::Color>;
 
-    fn draw_all<'a, T, I>(&mut self, items: I) -> Result<(), D::Error>
+    fn draw_all<'a, T, I>(&mut self, items: I) -> Result<(), <Self::Target as DrawTarget>::Error>
     where
-        T: Drawable<Color = D::Color> + 'a,
+        T: Drawable<Color = <Self::Target as DrawTarget>::Color> + 'a,
         I: IntoIterator<Item = &'a T>,
     {
         for item in items {
@@ -19,6 +20,9 @@ where
         Ok(())
     }
 
-    fn clear(&mut self, color: D::Color) -> Result<(), D::Error>;
+    fn clear(&mut self, color: <Self::Target as DrawTarget>::Color) -> Result<(), <Self::Target as DrawTarget>::Error>;
     fn flush(&mut self);
 }
+
+
+
