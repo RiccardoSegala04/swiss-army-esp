@@ -1,14 +1,10 @@
 use embedded_graphics::{
-    draw_target::DrawTarget,
-    pixelcolor::BinaryColor,
-    prelude::*,
-    primitives::Rectangle,
-    text::Text,
+    draw_target::DrawTarget, pixelcolor::BinaryColor, prelude::*, primitives::Rectangle, text::Text,
 };
 
-use embassy_sync::channel::{DynamicReceiver};
+use embassy_sync::channel::DynamicReceiver;
 
-use crate::services::router::{RouterEvent};
+use crate::services::router::RouterEvent;
 
 use crate::devices::controller::ControllerEvent;
 use crate::devices::display::Display;
@@ -131,7 +127,6 @@ where
             };
 
             self.draw(display)?;
-
         }
     }
 
