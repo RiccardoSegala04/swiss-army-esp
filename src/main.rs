@@ -2,7 +2,6 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(unused_mut)]
-
 #![no_std]
 #![no_main]
 #![deny(
@@ -37,7 +36,6 @@ use services::router::RouterEvent;
 use esp_hal::i2c::master::I2c;
 use esp_hal::{i2c::master::Config as I2cConfig, time::Rate};
 use ssd1306::{I2CDisplayInterface, Ssd1306, prelude::*};
-
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -91,7 +89,7 @@ async fn main(spawner: Spawner) -> ! {
         ),
     );
 
-    let controller_service = ControllerService::new(EVENT_CHANNEL.sender().into(), controller);
+    let controller_service = ControllerService::new(EVENT_CHANNEL.dyn_sender(), controller);
 
     info!("Starting Controller Task");
     spawner.spawn(controller_task(controller_service)).unwrap();
@@ -125,11 +123,11 @@ async fn main(spawner: Spawner) -> ! {
 
     let mut ir_rx_view = IrRxView::with_style(&style);
 
-    let receiver = EVENT_CHANNEL.receiver();
+    let receiver = EVENT_CHANNEL.dyn_receiver();
 
     info!("Starting ListView");
 
-    listview.run(&mut display, receiver.into()).await.unwrap();
+    listview.run(&mut display, receiver).await.unwrap();
 
     loop {}
 
