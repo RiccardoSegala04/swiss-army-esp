@@ -20,7 +20,6 @@ pub struct InfraredService<PWM> {
     commands_receiver: DynamicReceiver<'static, InfraredCommand>,
     events_sender: DynamicSender<'static, RouterEvent>,
     ir: Infrared<PWM>,
-    pwm: u8
 }
 
 impl<PWM> InfraredService<PWM>
@@ -33,7 +32,6 @@ where
             commands_receiver: INFRARED_COMMANDS_CHANNEL.dyn_receiver(),
             events_sender,
             ir,
-            pwm: 50
         }
     }
    
@@ -45,11 +43,10 @@ where
         loop {
             let comm = self.commands_receiver.receive().await;
             match comm {
-                InfraredCommand::Listen => {
-                    info!("duty cycle step");
-                    self.ir.led_test(self.pwm);
-                    self.pwm = (self.pwm + 10) % 100;
+                InfraredCommand::Play(sig) => {
+                    self.ir.transmit(&sig).await;
                 },
+                _ => {}
             }  
         }
     }

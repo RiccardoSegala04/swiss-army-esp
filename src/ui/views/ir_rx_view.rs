@@ -5,6 +5,8 @@ use embedded_graphics::{
     text::Text,
 };
 
+use defmt::info;
+
 use heapless::Vec;
 
 use super::view::{Viewable, ViewContext};
@@ -29,6 +31,7 @@ static SAMPLE_TIMINGS: &[u16] = &[
     // Repeat bit (optional in NEC protocol)
     560, 1690,
 ];
+
 pub struct IrRxView<'a> {
     title: &'a str,
     last_signal: Option<IrSignal>,
@@ -44,7 +47,7 @@ impl<'a> IrRxView<'a> {
         Self {
             title: "IR RX",
             last_signal: Some(IrSignal {
-                timings: Vec::new(),
+                timings: Vec::from_slice(&SAMPLE_TIMINGS).unwrap(),
             }),
             buttons: [
                 Button::new(style, "RECORD", Point::new(33, 53), Size::new(57, 13)),
@@ -109,12 +112,21 @@ where
 
         loop {
             
+            self.draw(context.display)?;
+
             let ev = context.receiver.receive().await;
 
             match ev {
                 RouterEvent::ControllerEvent(ev) => {
                     match ev {
-                        ControllerEvent::NavNextPressed => context.sender.send(RouterCommand::InfraredCommand(InfraredCommand::Listen)).await,
+                        ControllerEvent::NavNextPressed => {
+                            if let Some(signal) = &self.last_signal {
+                                context.sender.send(RouterCommand::InfraredCommand(InfraredCommand::Play(signal.clone()))).await;
+                                info!("Transmitted");
+                            } else {
+                                info!("No transmission saved")
+                            }
+                        },
                         _ => {}
                     }
                 },
@@ -122,7 +134,6 @@ where
             };
 
 
-            self.draw(context.display)?;
         }
 
     }
