@@ -22,4 +22,3 @@ where
     fn clear(&mut self, color: D::Color) -> Result<(), D::Error>;
     fn flush(&mut self);
 }
-

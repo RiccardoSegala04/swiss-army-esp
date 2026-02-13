@@ -9,30 +9,29 @@
 use defmt::info;
 use embassy_executor::{Spawner, task};
 use embassy_time::{Duration, Timer};
-use esp_hal::gpio::{Input, InputConfig, Pull, Level, Output, OutputConfig};
+use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull};
 use esp_hal::peripherals::Peripherals;
 
-use esp_hal::timer::timg::TimerGroup;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::channel::{self, Receiver, Sender, Channel};
+use embassy_sync::channel::{self, Channel, Receiver, Sender};
 use embassy_sync::channel::{DynamicReceiver, DynamicSender};
+use esp_hal::timer::timg::TimerGroup;
 
 mod devices;
-use devices::display::{Display, DisplaySsd1306};
 use devices::Controller;
 use devices::controller::ControllerEvent;
+use devices::display::{Display, DisplaySsd1306};
 
 mod ui;
 use ui::Style;
-use ui::views::view::Viewable;
 use ui::views::DummyView;
-use ui::views::ListView;
 use ui::views::IrRxView;
+use ui::views::ListView;
+use ui::views::view::Viewable;
 
 mod services;
-use services::controller_service::ControllerService;
-use services::service_router::ServiceRouterEvent;
-use services::service_router;
+use services::controller::ControllerService;
+use services::router::RouterEvent;
 
 use esp_hal::i2c::master::I2c;
 use esp_hal::{i2c::master::Config as I2cConfig, time::Rate};
@@ -57,11 +56,7 @@ extern crate alloc;
 // For more information see: <https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/app_image_format.html#application-description>
 esp_bootloader_esp_idf::esp_app_desc!();
 
-static EVENT_CHANNEL: Channel<
-    CriticalSectionRawMutex,
-    service_router::ServiceRouterEvent,
-    8,
-> = Channel::new();
+static EVENT_CHANNEL: Channel<CriticalSectionRawMutex, RouterEvent, 8> = Channel::new();
 
 #[task]
 pub async fn controller_task(mut service: ControllerService<Input<'static>>) {
@@ -84,13 +79,27 @@ async fn main(spawner: Spawner) -> ! {
     esp_rtos::start(timg0.timer0);
 
     let mut controller = Controller::new(
-        Input::new(peripherals.GPIO4, InputConfig::default().with_pull(Pull::Up)),
-        Input::new(peripherals.GPIO5, InputConfig::default().with_pull(Pull::Up)),
-        Input::new(peripherals.GPIO6, InputConfig::default().with_pull(Pull::Up)),
-        Input::new(peripherals.GPIO7, InputConfig::default().with_pull(Pull::Up)),
+        Input::new(
+            peripherals.GPIO4,
+            InputConfig::default().with_pull(Pull::Up),
+        ),
+        Input::new(
+            peripherals.GPIO5,
+            InputConfig::default().with_pull(Pull::Up),
+        ),
+        Input::new(
+            peripherals.GPIO6,
+            InputConfig::default().with_pull(Pull::Up),
+        ),
+        Input::new(
+            peripherals.GPIO7,
+            InputConfig::default().with_pull(Pull::Up),
+        ),
     );
 
-    let controller_serv = ControllerService::new(EVENT_CHANNEL.sender().into(), controller);
+    let controller_service = ControllerService::new(EVENT_CHANNEL.sender().into(), controller);
+
+    spawner.spawn(controller_task(controller_service)).unwrap();
 
     // let radio_init = esp_radio::init().expect("Failed to initialize Wi-Fi/BLE controller");
     // let (mut _wifi_controller, _interfaces) =
@@ -112,16 +121,14 @@ async fn main(spawner: Spawner) -> ! {
     let style = Style::normal();
 
     let mut views = [
-        DummyView::new("PALLE").into(),
-        DummyView::new("NERE").into(),
-        DummyView::new("SUDATE").into(),
-        DummyView::new("GAY").into(),
+        DummyView::new("View1").into(),
+        DummyView::new("View2").into(),
+        DummyView::new("View3").into(),
+        DummyView::new("View4").into(),
     ];
-    let mut listview = ListView::new(&style, "PRISMA DI FERRITE", &mut views);
+    let mut listview = ListView::new(&style, "TITLE", &mut views);
 
     let mut ir_rx_view = IrRxView::with_style(&style);
-
-    spawner.spawn(controller_task(controller_serv)).unwrap();
 
     let receiver = EVENT_CHANNEL.receiver();
 

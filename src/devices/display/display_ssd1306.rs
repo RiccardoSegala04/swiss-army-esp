@@ -41,7 +41,8 @@ where
     }
 
     fn clear(
-        &mut self, color: BinaryColor
+        &mut self,
+        color: BinaryColor,
     ) -> Result<(), <Ssd1306<DI, SIZE, BufferedGraphicsMode<SIZE>> as DrawTarget>::Error> {
         self.ssd.clear(color)
     }

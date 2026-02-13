@@ -1,11 +1,10 @@
-
 use embedded_graphics::{
+    draw_target::DrawTarget,
+    mono_font::{MonoTextStyleBuilder, ascii::FONT_6X10},
     pixelcolor::BinaryColor,
     prelude::*,
-    primitives::{PrimitiveStyle, CornerRadii, CornerRadiiBuilder, Rectangle, RoundedRectangle},
-    mono_font::{ascii::FONT_6X10, MonoTextStyleBuilder},
-    text::{Text, Alignment},
-    draw_target::DrawTarget,
+    primitives::{CornerRadii, CornerRadiiBuilder, PrimitiveStyle, Rectangle, RoundedRectangle},
+    text::{Alignment, Text},
 };
 
 use crate::ui::Style;
@@ -19,8 +18,7 @@ pub struct Button<'a> {
 }
 
 impl<'a> Button<'a> {
-
- pub fn new(style: &'a Style, name: &'a str, center: Point, size: Size) -> Self {
+    pub fn new(style: &'a Style, name: &'a str, center: Point, size: Size) -> Self {
         Self {
             name,
             selected: false,
@@ -29,14 +27,14 @@ impl<'a> Button<'a> {
             style,
         }
     }
-    
+
     pub fn selected_new(style: &'static Style, name: &'a str, center: Point, size: Size) -> Self {
         Self {
             name,
             selected: true,
             center,
             size,
-            style
+            style,
         }
     }
 
@@ -74,7 +72,6 @@ impl<'a> Drawable for Button<'a> {
             self.style.deselected
         };
 
-
         let radii = CornerRadiiBuilder::new().all(Size::new(40, 40)).build();
 
         let rect = Rectangle::with_center(self.center, self.size);
@@ -84,13 +81,16 @@ impl<'a> Drawable for Button<'a> {
 
         let text_style = MonoTextStyleBuilder::new()
             .font(&FONT_6X10)
-            .text_color(if self.selected { self.style.color_bg } else { self.style.color_fg })
+            .text_color(if self.selected {
+                self.style.color_bg
+            } else {
+                self.style.color_fg
+            })
             .build();
 
-        let text_center = Point::new(self.center.x, self.center.y+3);
+        let text_center = Point::new(self.center.x, self.center.y + 3);
 
-        Text::with_alignment(self.name, text_center, text_style, Alignment::Center)
-            .draw(target)?;
+        Text::with_alignment(self.name, text_center, text_style, Alignment::Center).draw(target)?;
 
         Ok(())
     }

@@ -1,8 +1,6 @@
-enum InfraredCommand {
-       
-}
+enum InfraredCommand {}
 
 #[derive(Clone)]
 pub struct IrSignal<'a> {
-    pub timings: &'a[u16]
+    pub timings: &'a [u16],
 }

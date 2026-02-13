@@ -2,13 +2,17 @@ use embedded_hal::digital::InputPin;
 use embedded_hal_async::digital::Wait;
 
 use embassy_futures::select::*;
-use embassy_time::{Timer, Duration};
+use embassy_time::{Duration, Timer};
 
 pub enum ControllerEvent {
     ConfirmPressed,
     BackPressed,
     NavNextPressed,
     NavPrevPressed,
+}
+
+pub enum ControllerCommand {
+    LedColor { red: u8, green: u8, blue: u8 },
 }
 
 pub struct Controller<InPin> {
@@ -68,13 +72,9 @@ where
             Either4::Fourth(_) => ControllerEvent::NavPrevPressed,
         }
     }
-
 }
 
-async fn wait_for_falling_edge_debounced<B>(
-    button: &mut B,
-    debounce_ms: u64,
-)
+async fn wait_for_falling_edge_debounced<B>(button: &mut B, debounce_ms: u64)
 where
     B: Wait + InputPin,
 {

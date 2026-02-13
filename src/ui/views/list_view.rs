@@ -1,22 +1,22 @@
 use embedded_graphics::{
+    draw_target::DrawTarget,
+    mono_font::{MonoTextStyle, ascii::FONT_6X10},
     pixelcolor::BinaryColor,
     prelude::*,
     primitives::{PrimitiveStyle, Rectangle},
-    mono_font::{MonoTextStyle, ascii::FONT_6X10},
     text::Text,
-    draw_target::DrawTarget,
 };
 
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::{self, Receiver, Sender};
 use embassy_sync::channel::{DynamicReceiver, DynamicSender};
 
-use crate::services::service_router;
+use crate::services::router::{RouterCommand, RouterEvent};
 
-use crate::devices::display::Display;
 use crate::devices::controller::ControllerEvent;
+use crate::devices::display::Display;
 
-use super::view::{Viewable, ViewType};
+use super::view::{ViewType, Viewable};
 
 use crate::ui::Style;
 
@@ -36,7 +36,7 @@ pub struct ListView<'a> {
     sel_idx: usize,
     vpad: u8,
     hpad: u8,
-    style: &'a Style
+    style: &'a Style,
 }
 
 impl<'a> ListView<'a> {
@@ -47,7 +47,7 @@ impl<'a> ListView<'a> {
             sel_idx: 0,
             vpad: 2,
             hpad: 2,
-            style
+            style,
         }
     }
 
@@ -55,7 +55,6 @@ impl<'a> ListView<'a> {
     where
         D: DrawTarget<Color = BinaryColor>,
     {
-
         display.clear(self.style.color_bg);
 
         self.draw_top_bar(display);
@@ -108,34 +107,34 @@ impl<'a, D> Viewable<D> for ListView<'a>
 where
     D: DrawTarget<Color = BinaryColor>,
 {
-    async fn run(&mut self, display: &mut impl Display<D>, receiver: DynamicReceiver<'static, service_router::ServiceRouterEvent>) {
-
+    async fn run(
+        &mut self,
+        display: &mut impl Display<D>,
+        receiver: DynamicReceiver<'static, RouterEvent>,
+    ) {
         self.draw(display);
 
         loop {
             let ev = receiver.receive().await;
 
             match ev {
-                service_router::ServiceRouterEvent::ControllerEvent(ev) => {
+                RouterEvent::ControllerEvent(ev) => {
                     match ev {
                         ControllerEvent::NavNextPressed => self.sel_idx = (self.sel_idx + 1) % 4,
                         ControllerEvent::NavPrevPressed => self.sel_idx = (self.sel_idx + 3) % 4,
-                        _ => {},
+                        _ => {}
                     };
-                },
+                }
             };
 
             self.draw(display);
-
         }
-        
     }
 
     fn title(&self) -> &str {
         self.title
     }
 }
-
 
 fn draw_marker<D>(
     display: &mut impl Display<D>,
@@ -172,10 +171,7 @@ fn draw_item_text<D>(
 {
     let text = Text::new(
         <ViewType<'_> as Viewable<D>>::title(element),
-        Point::new(
-            hpad as i32 + MARKER_SIZE + MARKER_TEXT_GAP,
-            y,
-        ),
+        Point::new(hpad as i32 + MARKER_SIZE + MARKER_TEXT_GAP, y),
         style.text_big,
     );
 

@@ -1,21 +1,20 @@
-
 use embedded_graphics::{
+    draw_target::DrawTarget,
+    mono_font::ascii::FONT_6X10,
     pixelcolor::BinaryColor,
     prelude::*,
-    primitives::{Rectangle, PrimitiveStyle},
+    primitives::{PrimitiveStyle, Rectangle},
     text::{Text, TextStyleBuilder},
-    mono_font::ascii::FONT_6X10,
-    draw_target::DrawTarget
 };
 
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::{self, Receiver, Sender};
 use embassy_sync::channel::{DynamicReceiver, DynamicSender};
 
-use crate::services::service_router;
+use crate::services::router::{RouterCommand, RouterEvent};
 
-use super::view::Viewable;
 use super::view::ViewType;
+use super::view::Viewable;
 
 use crate::devices::display::Display;
 
@@ -31,9 +30,13 @@ impl<'a> DummyView<'a> {
 
 impl<'a, D> Viewable<D> for DummyView<'a>
 where
-    D: DrawTarget<Color = BinaryColor>
+    D: DrawTarget<Color = BinaryColor>,
 {
-    async fn run(&mut self, display: &mut impl Display<D>, receiver: DynamicReceiver<'static, service_router::ServiceRouterEvent>) {
+    async fn run(
+        &mut self,
+        display: &mut impl Display<D>,
+        receiver: DynamicReceiver<'static, RouterEvent>,
+    ) {
         _ = display;
         _ = receiver;
     }

@@ -1,4 +1,3 @@
-
 use embedded_hal::digital::InputPin;
 use embedded_hal::digital::OutputPin;
 use embedded_hal_async::digital::Wait;
@@ -7,13 +6,8 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::{self, Receiver, Sender};
 use embassy_sync::channel::{DynamicReceiver, DynamicSender};
 
-use crate::devices::controller::{Controller, ControllerEvent};
-use crate::devices::controller;
-use crate::services::service_router::{self, ServiceRouterEvent};
-
-pub enum ControllerCommand {
-    LedColor { red: u8, green: u8, blue: u8 },
-}
+use crate::devices::controller::{Controller, ControllerCommand, ControllerEvent};
+use crate::services::router::{self, RouterEvent};
 
 pub static CONTROLLER_COMMANDS_CHANNEL: channel::Channel<
     CriticalSectionRawMutex,
@@ -22,8 +16,8 @@ pub static CONTROLLER_COMMANDS_CHANNEL: channel::Channel<
 > = channel::Channel::new();
 
 pub struct ControllerService<InPin> {
-    //commands_channel: &'static channel::Channel<CriticalSectionRawMutex, ControllerCommand, 1>,
-    events_sender: DynamicSender<'static, service_router::ServiceRouterEvent>,
+    commands_receiver: DynamicReceiver<'static, ControllerCommand>,
+    events_sender: DynamicSender<'static, RouterEvent>,
     controller_driver: Controller<InPin>,
 }
 
@@ -32,10 +26,11 @@ where
     InPin: InputPin + Wait,
 {
     pub fn new(
-        events_sender: DynamicSender<'static, service_router::ServiceRouterEvent>,
+        events_sender: DynamicSender<'static, RouterEvent>,
         controller_driver: Controller<InPin>,
     ) -> Self {
         Self {
+            commands_receiver: CONTROLLER_COMMANDS_CHANNEL.dyn_receiver(),
             events_sender,
             controller_driver,
         }
@@ -43,10 +38,6 @@ where
 
     pub fn commands_sender() -> DynamicSender<'static, ControllerCommand> {
         CONTROLLER_COMMANDS_CHANNEL.dyn_sender()
-    }
-
-    fn commands_receiver() -> DynamicReceiver<'static, ControllerCommand> {
-        CONTROLLER_COMMANDS_CHANNEL.dyn_receiver()
     }
 
     pub async fn run(&mut self) -> ! {
@@ -71,9 +62,7 @@ where
 
     pub async fn send_event(&mut self, event: ControllerEvent) {
         self.events_sender
-            .send(ServiceRouterEvent::ControllerEvent(event))
+            .send(RouterEvent::ControllerEvent(event))
             .await;
     }
 }
-
-
