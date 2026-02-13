@@ -1,6 +1,8 @@
 use embedded_hal_async::spi::SpiDevice;
+use esp_hal::chip;
 
 use crate::devices::cc1101_driver::{CC1101Driver, Register, StatusReg, StrobeCmd};
+use embedded_time::rate;
 
 pub struct CC1101<SPId> {
     chip: CC1101Driver<SPId>,
@@ -72,6 +74,41 @@ where
             .set_reg_bit(active, Register::PKTCTRL0)
             .await
             .map_err(|_| ())
+    }
+
+    pub async fn set_frequency(&mut self, freq: rate::Hertz) -> Result<(), ()> {
+        let reg_new = (((freq.0 as u64) << 16) / 26000000) as u32;
+        self.go_idle().await?;
+        self.chip
+            .write_reg(Register::CHANNR, 0)
+            .await
+            .map_err(|_| ())?;
+        self.chip
+            .write_reg(Register::FREQ2, ((reg_new >> 16) & 0xFF) as u8)
+            .await
+            .map_err(|_| ())?;
+        self.chip
+            .write_reg(Register::FREQ1, ((reg_new >> 8) & 0xFF) as u8)
+            .await
+            .map_err(|_| ())?;
+        self.chip
+            .write_reg(Register::FREQ0, ((reg_new >> 0) & 0xFF) as u8)
+            .await
+            .map_err(|_| ())?;
+        Ok(())
+    }
+
+    pub async fn set_sync_word(&mut self, word: u16) -> Result<(), ()> {
+        self.go_idle().await?;
+        self.chip
+            .write_reg(Register::SYNC0, ((word >> 0) & 0xFF) as u8)
+            .await
+            .map_err(|_| ())?;
+        self.chip
+            .write_reg(Register::SYNC1, ((word >> 8) & 0xFF) as u8)
+            .await
+            .map_err(|_| ())?;
+        Ok(())
     }
 }
 
