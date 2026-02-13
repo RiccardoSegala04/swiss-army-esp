@@ -1,3 +1,8 @@
+// Temporary
+#![allow(dead_code)]
+#![allow(unused_variables)]
+#![allow(unused_mut)]
+
 #![no_std]
 #![no_main]
 #![deny(
@@ -8,19 +13,15 @@
 
 use defmt::info;
 use embassy_executor::{Spawner, task};
-use embassy_time::{Duration, Timer};
-use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull};
-use esp_hal::peripherals::Peripherals;
+use esp_hal::gpio::{Input, InputConfig, Pull};
 
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::channel::{self, Channel, Receiver, Sender};
-use embassy_sync::channel::{DynamicReceiver, DynamicSender};
+use embassy_sync::channel::Channel;
 use esp_hal::timer::timg::TimerGroup;
 
 mod devices;
 use devices::Controller;
-use devices::controller::ControllerEvent;
-use devices::display::{Display, DisplaySsd1306};
+use devices::display::DisplaySsd1306;
 
 mod ui;
 use ui::Style;
@@ -37,13 +38,6 @@ use esp_hal::i2c::master::I2c;
 use esp_hal::{i2c::master::Config as I2cConfig, time::Rate};
 use ssd1306::{I2CDisplayInterface, Ssd1306, prelude::*};
 
-use embedded_graphics::{
-    Drawable,
-    mono_font::{MonoTextStyle, ascii::FONT_6X10},
-    pixelcolor::BinaryColor,
-    prelude::*,
-    text::{Alignment, Text},
-};
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -99,6 +93,7 @@ async fn main(spawner: Spawner) -> ! {
 
     let controller_service = ControllerService::new(EVENT_CHANNEL.sender().into(), controller);
 
+    info!("Starting Controller Task");
     spawner.spawn(controller_task(controller_service)).unwrap();
 
     // let radio_init = esp_radio::init().expect("Failed to initialize Wi-Fi/BLE controller");
@@ -132,7 +127,9 @@ async fn main(spawner: Spawner) -> ! {
 
     let receiver = EVENT_CHANNEL.receiver();
 
-    listview.run(&mut display, receiver.into()).await;
+    info!("Starting ListView");
+
+    listview.run(&mut display, receiver.into()).await.unwrap();
 
     loop {}
 

@@ -1,19 +1,12 @@
 use embedded_graphics::{
     draw_target::DrawTarget,
-    mono_font::ascii::FONT_6X10,
     pixelcolor::BinaryColor,
-    prelude::*,
-    primitives::{PrimitiveStyle, Rectangle},
-    text::{Text, TextStyleBuilder},
 };
 
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::channel::{self, Receiver, Sender};
-use embassy_sync::channel::{DynamicReceiver, DynamicSender};
+use embassy_sync::channel::{DynamicReceiver};
 
-use crate::services::router::{RouterCommand, RouterEvent};
+use crate::services::router::RouterEvent;
 
-use super::view::ViewType;
 use super::view::Viewable;
 
 use crate::devices::display::Display;
@@ -36,9 +29,11 @@ where
         &mut self,
         display: &mut impl Display<D>,
         receiver: DynamicReceiver<'static, RouterEvent>,
-    ) {
+    ) -> Result<(), D::Error> {
         _ = display;
         _ = receiver;
+
+        Ok(())
     }
 
     fn title(&self) -> &str {

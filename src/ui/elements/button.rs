@@ -3,7 +3,7 @@ use embedded_graphics::{
     mono_font::{MonoTextStyleBuilder, ascii::FONT_6X10},
     pixelcolor::BinaryColor,
     prelude::*,
-    primitives::{CornerRadii, CornerRadiiBuilder, PrimitiveStyle, Rectangle, RoundedRectangle},
+    primitives::{CornerRadiiBuilder, Rectangle, RoundedRectangle},
     text::{Alignment, Text},
 };
 

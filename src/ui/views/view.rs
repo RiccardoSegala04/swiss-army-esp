@@ -1,10 +1,6 @@
 use embedded_graphics::{
     draw_target::DrawTarget,
-    mono_font::ascii::FONT_6X10,
     pixelcolor::BinaryColor,
-    prelude::*,
-    primitives::{PrimitiveStyle, Rectangle},
-    text::{Text, TextStyleBuilder},
 };
 
 use crate::devices::display::Display;
@@ -12,18 +8,16 @@ use crate::devices::display::Display;
 use super::dummy_view::DummyView;
 use super::list_view::ListView;
 
-use crate::services::router::{RouterCommand, RouterEvent};
+use crate::services::router::{RouterEvent};
 
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::channel::{self, Receiver, Sender};
-use embassy_sync::channel::{DynamicReceiver, DynamicSender};
+use embassy_sync::channel::{DynamicReceiver};
 
 pub trait Viewable<D: DrawTarget<Color = BinaryColor>> {
     async fn run(
         &mut self,
         display: &mut impl Display<D>,
         receiver: DynamicReceiver<'static, RouterEvent>,
-    );
+    ) -> Result<(), D::Error>;
     fn title(&self) -> &str;
 }
 
@@ -40,11 +34,13 @@ where
         &mut self,
         display: &mut impl Display<D>,
         receiver: DynamicReceiver<'static, RouterEvent>,
-    ) {
+    ) -> Result<(), D::Error> {
         match self {
-            ViewType::ListView(v) => v.run(display, receiver).await,
-            ViewType::DummyView(v) => v.run(display, receiver).await,
-        }
+            ViewType::ListView(v) => v.run(display, receiver).await?,
+            ViewType::DummyView(v) => v.run(display, receiver).await?,
+        };
+
+        Ok(())
     }
 
     fn title(&self) -> &str {

@@ -1,10 +1,7 @@
 use embedded_graphics::{
-    draw_target::DrawTarget,
     mono_font::{MonoTextStyle, ascii::FONT_4X6, ascii::FONT_6X10},
     pixelcolor::BinaryColor,
-    prelude::*,
-    primitives::{PrimitiveStyle, Rectangle},
-    text::Text,
+    primitives::PrimitiveStyle,
 };
 
 pub const TOP_BAR_HEIGHT: i32 = 16;

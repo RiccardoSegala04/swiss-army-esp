@@ -79,7 +79,7 @@ where
     B: Wait + InputPin,
 {
     loop {
-        button.wait_for_falling_edge().await;
+        let _ = button.wait_for_falling_edge().await;
 
         Timer::after(Duration::from_millis(debounce_ms)).await;
 

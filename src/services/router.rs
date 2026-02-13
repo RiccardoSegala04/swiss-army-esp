@@ -1,5 +1,5 @@
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::channel::{self, Receiver, Sender};
+use embassy_sync::channel::{self, Sender};
 use embassy_sync::channel::{DynamicReceiver, DynamicSender};
 
 use crate::devices::controller;

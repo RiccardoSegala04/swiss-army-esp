@@ -6,7 +6,6 @@ use embedded_graphics::{
     primitives::{Line, PrimitiveStyle, Rectangle, RoundedRectangle},
 };
 
-use crate::Display;
 use crate::devices::ir::IrSignal;
 
 use crate::ui::Style;
@@ -94,7 +93,7 @@ impl<'a> IrSignalViewer<'a> {
                 vert.draw(target)?;
                 horiz.draw(target)?;
 
-                if (destx >= center.x + size.width as i32 / 2 - 1) {
+                if destx >= center.x + size.width as i32 / 2 - 1 {
                     break;
                 }
 

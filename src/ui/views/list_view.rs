@@ -1,17 +1,14 @@
 use embedded_graphics::{
     draw_target::DrawTarget,
-    mono_font::{MonoTextStyle, ascii::FONT_6X10},
     pixelcolor::BinaryColor,
     prelude::*,
-    primitives::{PrimitiveStyle, Rectangle},
+    primitives::Rectangle,
     text::Text,
 };
 
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::channel::{self, Receiver, Sender};
-use embassy_sync::channel::{DynamicReceiver, DynamicSender};
+use embassy_sync::channel::{DynamicReceiver};
 
-use crate::services::router::{RouterCommand, RouterEvent};
+use crate::services::router::{RouterEvent};
 
 use crate::devices::controller::ControllerEvent;
 use crate::devices::display::Display;
@@ -51,19 +48,21 @@ impl<'a> ListView<'a> {
         }
     }
 
-    pub fn draw<D>(&mut self, display: &mut impl Display<D>)
+    pub fn draw<D>(&mut self, display: &mut impl Display<D>) -> Result<(), D::Error>
     where
         D: DrawTarget<Color = BinaryColor>,
     {
-        display.clear(self.style.color_bg);
+        display.clear(self.style.color_bg)?;
 
-        self.draw_top_bar(display);
-        self.draw_list(display);
+        self.draw_top_bar(display)?;
+        self.draw_list(display)?;
 
         display.flush();
+
+        Ok(())
     }
 
-    fn draw_top_bar<D>(&self, display: &mut impl Display<D>)
+    fn draw_top_bar<D>(&self, display: &mut impl Display<D>) -> Result<(), D::Error>
     where
         D: DrawTarget<Color = BinaryColor>,
     {
@@ -73,7 +72,7 @@ impl<'a> ListView<'a> {
         )
         .into_styled(self.style.bar);
 
-        display.draw(&bar);
+        display.draw(&bar)?;
 
         let title = Text::new(
             self.title,
@@ -81,10 +80,12 @@ impl<'a> ListView<'a> {
             self.style.text_bar_big,
         );
 
-        display.draw(&title);
+        display.draw(&title)?;
+
+        Ok(())
     }
 
-    fn draw_list<D>(&mut self, display: &mut impl Display<D>)
+    fn draw_list<D>(&mut self, display: &mut impl Display<D>) -> Result<(), D::Error>
     where
         D: DrawTarget<Color = BinaryColor>,
     {
@@ -95,11 +96,13 @@ impl<'a> ListView<'a> {
         let mut y = LIST_START_Y + vpad as i32;
 
         for (idx, element) in self.elements.iter_mut().enumerate() {
-            draw_marker(display, idx, sel_idx, hpad, y, self.style);
-            draw_item_text(display, element, hpad, y, self.style);
+            draw_marker(display, idx, sel_idx, hpad, y, self.style)?;
+            draw_item_text(display, element, hpad, y, self.style)?;
 
             y += ITEM_HEIGHT + vpad as i32;
         }
+
+        Ok(())
     }
 }
 
@@ -111,8 +114,8 @@ where
         &mut self,
         display: &mut impl Display<D>,
         receiver: DynamicReceiver<'static, RouterEvent>,
-    ) {
-        self.draw(display);
+    ) -> Result<(), D::Error> {
+        self.draw(display)?;
 
         loop {
             let ev = receiver.receive().await;
@@ -127,7 +130,8 @@ where
                 }
             };
 
-            self.draw(display);
+            self.draw(display)?;
+
         }
     }
 
@@ -143,7 +147,8 @@ fn draw_marker<D>(
     hpad: u8,
     y: i32,
     style: &Style,
-) where
+) -> Result<(), D::Error>
+where
     D: DrawTarget<Color = BinaryColor>,
 {
     let base = Rectangle::new(
@@ -157,7 +162,7 @@ fn draw_marker<D>(
         base.into_styled(style.deselected)
     };
 
-    display.draw(&marker);
+    display.draw(&marker)
 }
 
 fn draw_item_text<D>(
@@ -166,7 +171,8 @@ fn draw_item_text<D>(
     hpad: u8,
     y: i32,
     style: &Style,
-) where
+) -> Result<(), D::Error>
+where
     D: DrawTarget<Color = BinaryColor>,
 {
     let text = Text::new(
@@ -175,5 +181,5 @@ fn draw_item_text<D>(
         style.text_big,
     );
 
-    display.draw(&text);
+    display.draw(&text)
 }
