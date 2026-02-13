@@ -1,11 +1,6 @@
-use embedded_graphics::{
-    draw_target::DrawTarget,
-    pixelcolor::BinaryColor,
-};
+use embedded_graphics::draw_target::DrawTarget;
 
-use embassy_sync::channel::{DynamicReceiver};
 
-use crate::services::router::RouterEvent;
 
 use super::view::{Viewable, ViewContext};
 

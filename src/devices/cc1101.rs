@@ -1,5 +1,4 @@
 use embedded_hal_async::spi::SpiDevice;
-use esp_hal::chip;
 
 use crate::devices::cc1101_driver::{CC1101Driver, Register, StatusReg, StrobeCmd};
 use embedded_time::rate;

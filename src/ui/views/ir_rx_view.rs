@@ -1,12 +1,10 @@
 use embedded_graphics::{
     draw_target::DrawTarget,
-    pixelcolor::BinaryColor,
     prelude::*,
     primitives::Rectangle,
     text::Text,
 };
 
-use embassy_sync::channel::{DynamicReceiver};
 
 use super::view::{Viewable, ViewContext};
 
@@ -17,7 +15,6 @@ use crate::ui::elements::IrSignalViewer;
 use crate::devices::display::Display;
 use crate::devices::ir::IrSignal;
 
-use crate::services::router::{RouterEvent};
 
 static SAMPLE_TIMINGS: &[u16] = &[
     // Header

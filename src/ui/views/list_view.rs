@@ -1,8 +1,7 @@
 use embedded_graphics::{
-    draw_target::DrawTarget, pixelcolor::BinaryColor, prelude::*, primitives::Rectangle, text::Text,
+    draw_target::DrawTarget, prelude::*, primitives::Rectangle, text::Text,
 };
 
-use embassy_sync::channel::DynamicReceiver;
 
 use crate::services::router::RouterEvent;
 
