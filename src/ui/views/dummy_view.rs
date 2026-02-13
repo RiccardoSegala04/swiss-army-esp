@@ -8,6 +8,12 @@ use embedded_graphics::{
     draw_target::DrawTarget
 };
 
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::channel::{self, Receiver, Sender};
+use embassy_sync::channel::{DynamicReceiver, DynamicSender};
+
+use crate::services::service_router;
+
 use super::view::Viewable;
 use super::view::ViewType;
 
@@ -27,8 +33,9 @@ impl<'a, D> Viewable<D> for DummyView<'a>
 where
     D: DrawTarget<Color = BinaryColor>
 {
-    fn run(&mut self, display: &mut impl Display<D>) {
+    async fn run(&mut self, display: &mut impl Display<D>, receiver: DynamicReceiver<'static, service_router::ServiceRouterEvent>) {
         _ = display;
+        _ = receiver;
     }
 
     fn title(&self) -> &str {

@@ -11,6 +11,10 @@ use embedded_graphics::{
     draw_target::DrawTarget
 };
 
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::channel::{self, Receiver, Sender};
+use embassy_sync::channel::{DynamicReceiver, DynamicSender};
+
 use super::view::Viewable;
 use super::view::ViewType;
 
@@ -21,7 +25,7 @@ use crate::ui::elements::IrSignalViewer;
 use crate::devices::display::Display;
 use crate::devices::ir::IrSignal;
 
-
+use crate::services::service_router;
 
 static SAMPLE_TIMINGS: &[u16] = &[
     // Header
@@ -112,12 +116,12 @@ impl<'a> IrRxView<'a> {
     }
 }
 
-impl<'a, D> Viewable<D> for IrRxView<'_>
+impl<'a, D> Viewable<D> for IrRxView<'a>
 where
     D: DrawTarget<Color = BinaryColor>
 {
 
-    fn run(&mut self, display: &mut impl Display<D>) {
+    async fn run(&mut self, display: &mut impl Display<D>, receiver: DynamicReceiver<'static, service_router::ServiceRouterEvent>) {
 
         if let Some(signal) = &self.last_signal {
             self.signal_viewer.set_signal(signal.clone());

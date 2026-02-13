@@ -7,24 +7,32 @@
 )]
 
 use defmt::info;
-use embassy_executor::Spawner;
+use embassy_executor::{Spawner, task};
 use embassy_time::{Duration, Timer};
-use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig};
+use esp_hal::gpio::{Input, InputConfig, Pull, Level, Output, OutputConfig};
 use esp_hal::peripherals::Peripherals;
 
 use esp_hal::timer::timg::TimerGroup;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::channel::{self, Receiver, Sender, Channel};
+use embassy_sync::channel::{DynamicReceiver, DynamicSender};
 
 mod devices;
 use devices::display::{Display, DisplaySsd1306};
+use devices::Controller;
+use devices::controller::ControllerEvent;
 
 mod ui;
+use ui::Style;
+use ui::views::view::Viewable;
 use ui::views::DummyView;
 use ui::views::ListView;
 use ui::views::IrRxView;
-use ui::Style;
 
-use crate::ui::views::view::Viewable;
+mod services;
+use services::controller_service::ControllerService;
+use services::service_router::ServiceRouterEvent;
+use services::service_router;
 
 use esp_hal::i2c::master::I2c;
 use esp_hal::{i2c::master::Config as I2cConfig, time::Rate};
@@ -49,12 +57,24 @@ extern crate alloc;
 // For more information see: <https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/app_image_format.html#application-description>
 esp_bootloader_esp_idf::esp_app_desc!();
 
+static EVENT_CHANNEL: Channel<
+    CriticalSectionRawMutex,
+    service_router::ServiceRouterEvent,
+    8,
+> = Channel::new();
+
+#[task]
+pub async fn controller_task(mut service: ControllerService<Input<'static>>) {
+    loop {
+        service.run().await;
+    }
+}
+
 #[esp_rtos::main]
 async fn main(spawner: Spawner) -> ! {
     // generator version: 1.0.1
     rtt_target::rtt_init_defmt!();
 
-    // let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let config = esp_hal::Config::default();
     let peripherals = esp_hal::init(config);
 
@@ -62,6 +82,15 @@ async fn main(spawner: Spawner) -> ! {
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0);
+
+    let mut controller = Controller::new(
+        Input::new(peripherals.GPIO4, InputConfig::default().with_pull(Pull::Up)),
+        Input::new(peripherals.GPIO5, InputConfig::default().with_pull(Pull::Up)),
+        Input::new(peripherals.GPIO6, InputConfig::default().with_pull(Pull::Up)),
+        Input::new(peripherals.GPIO7, InputConfig::default().with_pull(Pull::Up)),
+    );
+
+    let controller_serv = ControllerService::new(EVENT_CHANNEL.sender().into(), controller);
 
     // let radio_init = esp_radio::init().expect("Failed to initialize Wi-Fi/BLE controller");
     // let (mut _wifi_controller, _interfaces) =
@@ -92,14 +121,13 @@ async fn main(spawner: Spawner) -> ! {
 
     let mut ir_rx_view = IrRxView::with_style(&style);
 
-    let _ = spawner;
+    spawner.spawn(controller_task(controller_serv)).unwrap();
 
-    info!("Palle");
+    let receiver = EVENT_CHANNEL.receiver();
 
-    loop {
-        // listview.run(&mut display);
-        ir_rx_view.run(&mut display);
-        Timer::after(Duration::from_secs(1)).await;
-    }
+    listview.run(&mut display, receiver.into()).await;
+
+    loop {}
+
     // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.0.0/examples/src/bin
 }

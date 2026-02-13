@@ -1,20 +1,18 @@
-use crate::devices::controller;
-use crate::services::service_router::{self, ServiceRouterEvent};
+
+use embedded_hal::digital::InputPin;
+use embedded_hal::digital::OutputPin;
+use embedded_hal_async::digital::Wait;
+
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::{self, Receiver, Sender};
 use embassy_sync::channel::{DynamicReceiver, DynamicSender};
 
-use embedded_hal::digital::InputPin;
-use embedded_hal::digital::OutputPin;
-use embedded_hal::pwm::SetDutyCycle;
-//use esp_hal::gpio::OutputPin;
+use crate::devices::controller::{Controller, ControllerEvent};
+use crate::devices::controller;
+use crate::services::service_router::{self, ServiceRouterEvent};
 
 pub enum ControllerCommand {
     LedColor { red: u8, green: u8, blue: u8 },
-}
-
-pub enum ControllerEvent {
-    ConfirmPressed,
 }
 
 pub static CONTROLLER_COMMANDS_CHANNEL: channel::Channel<
@@ -23,20 +21,19 @@ pub static CONTROLLER_COMMANDS_CHANNEL: channel::Channel<
     1,
 > = channel::Channel::new();
 
-pub struct ControllerService<PWMpin, InPin> {
+pub struct ControllerService<InPin> {
     //commands_channel: &'static channel::Channel<CriticalSectionRawMutex, ControllerCommand, 1>,
     events_sender: DynamicSender<'static, service_router::ServiceRouterEvent>,
-    controller_driver: controller::Controller<PWMpin, InPin>,
+    controller_driver: Controller<InPin>,
 }
 
-impl<PWMpin, InPin> ControllerService<PWMpin, InPin>
+impl<InPin> ControllerService<InPin>
 where
-    PWMpin: OutputPin, //SetDutyCycle,
-    InPin: InputPin,
+    InPin: InputPin + Wait,
 {
     pub fn new(
         events_sender: DynamicSender<'static, service_router::ServiceRouterEvent>,
-        controller_driver: controller::Controller<PWMpin, InPin>,
+        controller_driver: Controller<InPin>,
     ) -> Self {
         Self {
             events_sender,
@@ -53,17 +50,22 @@ where
     }
 
     pub async fn run(&mut self) -> ! {
-        let commands = ControllerService::<PWMpin, InPin>::commands_receiver();
+        // let commands = ControllerService::<PWMpin, InPin>::commands_receiver();
+        // loop {
+        //     let command = commands.receive().await;
+        //     match command {
+        //         ControllerCommand::LedColor { red, green, blue } => {
+        //             // Handle LED color change
+        //             // For example, set the LED color using the device driver
+        //             //self.controller_driver.set_led(red, green, blue).ok();
+        //             self.send_event(ControllerEvent::ConfirmPressed).await;
+        //         }
+        //     }
+        // }
+
         loop {
-            let command = commands.receive().await;
-            match command {
-                ControllerCommand::LedColor { red, green, blue } => {
-                    // Handle LED color change
-                    // For example, set the LED color using the device driver
-                    //self.controller_driver.set_led(red, green, blue).ok();
-                    self.send_event(ControllerEvent::ConfirmPressed).await;
-                }
-            }
+            let ev = self.controller_driver.poll_events().await;
+            self.send_event(ev).await;
         }
     }
 
@@ -73,3 +75,5 @@ where
             .await;
     }
 }
+
+

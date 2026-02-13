@@ -13,8 +13,14 @@ use crate::devices::display::Display;
 use super::list_view::ListView;
 use super::dummy_view::DummyView;
 
+use crate::services::service_router;
+
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::channel::{self, Receiver, Sender};
+use embassy_sync::channel::{DynamicReceiver, DynamicSender};
+
 pub trait Viewable<D: DrawTarget<Color = BinaryColor>> {
-    fn run(&mut self, display: &mut impl Display<D>);
+    async fn run(&mut self, display: &mut impl Display<D>, receiver: DynamicReceiver<'static, service_router::ServiceRouterEvent>);
     fn title(&self) -> &str;
 }
 
@@ -27,10 +33,10 @@ impl<'a, D> Viewable<D> for ViewType<'a>
 where
     D: DrawTarget<Color = BinaryColor>
 {
-    fn run(&mut self, display: &mut impl Display<D>) {
+    async fn run(&mut self, display: &mut impl Display<D>, receiver: DynamicReceiver<'static, service_router::ServiceRouterEvent>) {
         match self {
-            ViewType::ListView(v) => v.run(display),
-            ViewType::DummyView(v) => v.run(display),
+            ViewType::ListView(v) => v.run(display, receiver).await,
+            ViewType::DummyView(v) => v.run(display, receiver).await,
         }
     }
 

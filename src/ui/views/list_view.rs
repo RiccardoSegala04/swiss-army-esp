@@ -7,7 +7,15 @@ use embedded_graphics::{
     draw_target::DrawTarget,
 };
 
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::channel::{self, Receiver, Sender};
+use embassy_sync::channel::{DynamicReceiver, DynamicSender};
+
+use crate::services::service_router;
+
 use crate::devices::display::Display;
+use crate::devices::controller::ControllerEvent;
+
 use super::view::{Viewable, ViewType};
 
 use crate::ui::Style;
@@ -100,13 +108,27 @@ impl<'a, D> Viewable<D> for ListView<'a>
 where
     D: DrawTarget<Color = BinaryColor>,
 {
-    fn run(&mut self, display: &mut impl Display<D>) {
+    async fn run(&mut self, display: &mut impl Display<D>, receiver: DynamicReceiver<'static, service_router::ServiceRouterEvent>) {
 
-        self.sel_idx = (self.sel_idx + 1)%4;
-
-        // Loop which handles events, generates commands, and draws on the screen
-        
         self.draw(display);
+
+        loop {
+            let ev = receiver.receive().await;
+
+            match ev {
+                service_router::ServiceRouterEvent::ControllerEvent(ev) => {
+                    match ev {
+                        ControllerEvent::NavNextPressed => self.sel_idx = (self.sel_idx + 1) % 4,
+                        ControllerEvent::NavPrevPressed => self.sel_idx = (self.sel_idx + 3) % 4,
+                        _ => {},
+                    };
+                },
+            };
+
+            self.draw(display);
+
+        }
+        
     }
 
     fn title(&self) -> &str {
