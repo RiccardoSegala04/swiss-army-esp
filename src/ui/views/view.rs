@@ -2,12 +2,73 @@ use embedded_graphics::draw_target::DrawTarget;
 
 use crate::devices::display::Display;
 
+use crate::ui::Style;
+
 use super::dummy_view::DummyView;
 use super::list_view::ListView;
+use super::ir_rx_view::IrRxView;
 
 use crate::services::router::{RouterCommand, RouterEvent};
 
 use embassy_sync::channel::{DynamicReceiver, DynamicSender};
+
+pub enum ViewAction {
+    SwitchTo(ViewType),
+    Exit
+}
+
+#[derive(Clone)]
+pub enum ViewType {
+    ListView,
+    IrRxView,
+    DummyView(&'static str),
+}
+
+impl ViewType {
+    pub fn title(&self) -> &'static str {
+        match self {
+            ViewType::ListView => "PIPU ZERO",
+            ViewType::IrRxView => "IR RX",
+            ViewType::DummyView(t) => t,
+        }
+    }
+
+    pub async fn start<D: Display>(
+        &mut self,
+        style: &Style,
+        context: &mut ViewContext<'_, D>,
+    ) -> Result<ViewAction, <D::Target as DrawTarget>::Error> {
+        match self {
+            ViewType::ListView => ListView::new(style).run(context).await,
+            ViewType::IrRxView => IrRxView::new(style).run(context).await,
+            ViewType::DummyView(t) => DummyView::new(t).run(context).await
+        }
+    }
+}
+
+// pub enum ViewType<'a> {
+//     ListView(ListView<'a>),
+//     DummyView(DummyView<'a>),
+//     IrRxView(IrRxView<'a>)
+// }
+
+// impl<'a> From<DummyView<'a>> for ViewType<'a> {
+//     fn from(v: DummyView<'a>) -> ViewType<'a> {
+//         ViewType::DummyView(v)
+//     }
+// }
+
+// impl<'a> From<ListView<'a>> for ViewType<'a> {
+//     fn from(v: ListView<'a>) -> ViewType<'a> {
+//         ViewType::ListView(v)
+//     }
+// }
+
+// impl<'a> From<IrRxView<'a>> for ViewType<'a> {
+//     fn from(v: IrRxView<'a>) -> ViewType<'a> {
+//         ViewType::IrRxView(v)
+//     }
+// }
 
 pub struct ViewContext<'a, D>
 where
@@ -42,48 +103,6 @@ where
     async fn run(
         &mut self,
         context: &mut ViewContext<D>,
-    ) -> Result<(), <D::Target as DrawTarget>::Error>;
+    ) -> Result<ViewAction, <D::Target as DrawTarget>::Error>;
 
-    fn title(&self) -> &str;
-}
-
-pub enum ViewType<'a> {
-    ListView(ListView<'a>),
-    DummyView(DummyView<'a>),
-}
-
-impl<'a, D> Viewable<D> for ViewType<'a>
-where
-    D: Display,
-{
-    async fn run(
-        &mut self,
-        context: &mut ViewContext<'_, D>,
-    ) -> Result<(), <D::Target as DrawTarget>::Error> {
-        match self {
-            ViewType::ListView(v) => v.run(context).await?,
-            ViewType::DummyView(v) => v.run(context).await?,
-        };
-
-        Ok(())
-    }
-
-    fn title(&self) -> &str {
-        match self {
-            ViewType::ListView(v) => <ListView<'_> as Viewable<D>>::title(v),
-            ViewType::DummyView(v) => <DummyView<'_> as Viewable<D>>::title(v),
-        }
-    }
-}
-
-impl<'a> From<DummyView<'a>> for ViewType<'a> {
-    fn from(v: DummyView<'a>) -> ViewType<'a> {
-        ViewType::DummyView(v)
-    }
-}
-
-impl<'a> From<ListView<'a>> for ViewType<'a> {
-    fn from(v: ListView<'a>) -> ViewType<'a> {
-        ViewType::ListView(v)
-    }
 }

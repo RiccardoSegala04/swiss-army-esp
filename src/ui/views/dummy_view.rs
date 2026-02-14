@@ -1,9 +1,10 @@
 use embedded_graphics::draw_target::DrawTarget;
 
-use super::view::{ViewContext, Viewable};
+use super::view::{ViewContext, Viewable, ViewAction};
 
 use crate::devices::display::Display;
 
+#[derive(Clone)]
 pub struct DummyView<'a> {
     title: &'a str,
 }
@@ -21,13 +22,10 @@ where
     async fn run(
         &mut self,
         context: &mut ViewContext<'_, D>,
-    ) -> Result<(), <D::Target as DrawTarget>::Error> {
+    ) -> Result<ViewAction, <D::Target as DrawTarget>::Error> {
         _ = context;
 
-        Ok(())
+        Ok(ViewAction::Exit)
     }
 
-    fn title(&self) -> &str {
-        self.title
-    }
 }

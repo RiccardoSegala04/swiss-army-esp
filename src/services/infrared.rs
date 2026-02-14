@@ -1,4 +1,3 @@
-use defmt::info;
 
 use embedded_hal::digital::InputPin;
 use embedded_hal::pwm::SetDutyCycle;
@@ -49,9 +48,9 @@ where
             match comm {
                 InfraredCommand::Play(sig) => {
                     self.ir.transmit(&sig).await;
+                    self.send_event(InfraredEvent::SignalPlayed).await;
                 }
                 InfraredCommand::Listen => {
-                    info!("Start listening");
                     let ev = self.ir.listen().await;
                     self.send_event(ev).await;
                 }

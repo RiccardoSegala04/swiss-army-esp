@@ -28,7 +28,7 @@ impl<'a> Button<'a> {
         }
     }
 
-    pub fn selected_new(style: &'static Style, name: &'a str, center: Point, size: Size) -> Self {
+    pub fn selected_new(style: &'a Style, name: &'a str, center: Point, size: Size) -> Self {
         Self {
             name,
             selected: true,

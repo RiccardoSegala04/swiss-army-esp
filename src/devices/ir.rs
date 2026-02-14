@@ -1,5 +1,6 @@
 use heapless::Vec;
 
+use defmt::info;
 
 use embedded_hal::pwm::SetDutyCycle;
 
@@ -20,11 +21,12 @@ pub enum InfraredEvent {
     Signal(IrSignal),
     SignalTooLong,
     NoSignal,
+    SignalPlayed,
 }
 
 #[derive(Clone)]
 pub struct IrSignal {
-    pub timings: Vec<u16, 512>,
+    pub timings: Vec<u16, 256>,
     level_high: bool,
 }
 
@@ -36,7 +38,7 @@ impl IrSignal {
         }
     }
 
-    pub fn with_timings(timings: Vec<u16, 512>) -> Self {
+    pub fn with_timings(timings: Vec<u16, 256>) -> Self {
         Self {
             timings: timings,
             level_high: true,
@@ -134,6 +136,8 @@ where
         if signal.is_empty() {
             return InfraredEvent::NoSignal;
         }
+
+        info!("Signal length: {}", signal.timings.len());
 
         InfraredEvent::Signal(signal)
     }

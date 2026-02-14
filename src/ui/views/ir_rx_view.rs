@@ -1,10 +1,9 @@
 use embedded_graphics::{draw_target::DrawTarget, prelude::*};
 
-
-
-use super::view::{ViewContext, Viewable};
+use super::view::{ViewContext, Viewable, ViewAction};
 
 use crate::ui::Style;
+use crate::ui::elements::ElementType;
 use crate::ui::elements::Button;
 use crate::ui::elements::IrSignalViewer;
 use crate::ui::elements::TopBar;
@@ -24,23 +23,78 @@ pub struct IrRxView<'a> {
     topbar: TopBar<'a>,
     last_signal: Option<IrSignal>,
 
-    buttons: [Button<'a>; 2],
     signal_viewer: IrSignalViewer<'a>,
+    elements: [ElementType<'a>; 2],
+    sel_idx: usize,
 
     style: &'a Style,
 }
 
 impl<'a> IrRxView<'a> {
-    pub fn with_style(style: &'a Style) -> Self {
+    pub fn new(style: &'a Style) -> Self {
         Self {
             last_signal: Some(IrSignal::new()),
             topbar: TopBar::new(style, "IR_RX"),
-            buttons: [
-                Button::new(style, "RECORD", Point::new(33, 53), Size::new(57, 13)),
-                Button::new(style, "REPLAY", Point::new(94, 53), Size::new(57, 13)),
+            signal_viewer: IrSignalViewer::selected_new(style, None, Point::new(63, 31), Size::new(118, 23)),
+            elements: [
+                Button::selected_new(style, "RECORD", Point::new(33, 53), Size::new(57, 13)).into(),
+                Button::new(style, "REPLAY", Point::new(94, 53), Size::new(57, 13)).into(),
             ],
-            signal_viewer: IrSignalViewer::new(style, None, Point::new(63, 31), Size::new(118, 23)),
+            sel_idx: 0,
             style,
+        }
+    }
+
+    fn select_next(&mut self) {
+        self.elements[self.sel_idx].deselect();
+        self.sel_idx = (self.sel_idx + 1) % self.elements.len();
+        self.elements[self.sel_idx].select();
+    }
+
+    fn select_prev(&mut self) {
+        self.elements[self.sel_idx].deselect();
+        self.sel_idx = (self.sel_idx + self.elements.len() - 1) % self.elements.len();
+        self.elements[self.sel_idx].select();
+    }
+
+
+    async fn confirm_pressed<D: Display>(&mut self, context: &mut ViewContext<'_, D>) {
+        match self.sel_idx {
+            0 => {
+                self.topbar.start_record();
+                context
+                    .sender
+                    .send(RouterCommand::InfraredCommand(InfraredCommand::Listen))
+                    .await;
+            }
+            1 => {
+                if let Some(signal) = &self.last_signal {
+                    self.topbar.start_record();
+                    context
+                        .sender
+                        .send(RouterCommand::InfraredCommand(InfraredCommand::Play(signal.clone())))
+                        .await;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_infrared_event(&mut self, ev: InfraredEvent) {
+        match ev {
+            InfraredEvent::Signal(sig) => {
+                self.topbar.stop_record();
+
+                self.signal_viewer.set_signal(sig.clone());
+
+                self.last_signal = Some(sig);
+
+            }
+            InfraredEvent::NoSignal | InfraredEvent::SignalTooLong => {
+                self.topbar.stop_record()
+            },
+            InfraredEvent::SignalPlayed => self.topbar.stop_record(),
+            _ => {}
         }
     }
 
@@ -54,8 +108,8 @@ impl<'a> IrRxView<'a> {
 
         display.draw(&self.signal_viewer)?;
 
-        for btn in &self.buttons {
-            display.draw(btn)?;
+        for e in &self.elements {
+            display.draw(e)?;
         }
 
         display.flush();
@@ -71,7 +125,7 @@ where
     async fn run(
         &mut self,
         context: &mut ViewContext<'_, D>,
-    ) -> Result<(), <D::Target as DrawTarget>::Error> {
+    ) -> Result<ViewAction, <D::Target as DrawTarget>::Error> {
         loop {
             self.draw(context.display)?;
 
@@ -79,46 +133,16 @@ where
 
             match ev {
                 RouterEvent::ControllerEvent(ev) => match ev {
-                    ControllerEvent::NavNextPressed => {
-                        if let Some(signal) = &self.last_signal {
-                            context
-                                .sender
-                                .send(RouterCommand::InfraredCommand(InfraredCommand::Play(
-                                    signal.clone(),
-                                )))
-                                .await;
-                        }
-                    }
-                    ControllerEvent::NavPrevPressed => {
-                        self.topbar.start_record();
-                        context
-                            .sender
-                            .send(RouterCommand::InfraredCommand(InfraredCommand::Listen))
-                            .await;
-                    }
+                    ControllerEvent::NavNextPressed => self.select_next(),
+                    ControllerEvent::NavPrevPressed => self.select_prev(),
+                    ControllerEvent::ConfirmPressed => self.confirm_pressed(context).await,
+                    ControllerEvent::BackPressed => return Ok(ViewAction::Exit),
                     _ => {}
                 },
-                RouterEvent::InfraredEvent(ev) => match ev {
-                    InfraredEvent::Signal(sig) => {
-                        self.topbar.stop_record();
-
-                        self.signal_viewer.set_signal(sig.clone());
-
-                        self.last_signal = Some(sig);
-                    }
-
-                    InfraredEvent::NoSignal | InfraredEvent::SignalTooLong => {
-                        self.topbar.stop_record()
-                    }
-
-                    _ => {}
-                },
+                RouterEvent::InfraredEvent(ev) => self.handle_infrared_event(ev),
                 _ => {}
             };
         }
     }
 
-    fn title(&self) -> &str {
-        self.topbar.title()
-    }
 }

@@ -29,6 +29,16 @@ impl<'a> IrSignalViewer<'a> {
         }
     }
 
+    pub fn selected_new(style: &'a Style, signal: Option<IrSignal>, center: Point, size: Size) -> Self {
+        Self {
+            signal,
+            selected: true,
+            center,
+            size,
+            style,
+        }
+    }
+
     pub fn select(&mut self) {
         self.selected = true;
     }

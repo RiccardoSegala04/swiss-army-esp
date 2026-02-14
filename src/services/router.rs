@@ -55,22 +55,3 @@ impl<'a> RouterService<'a> {
     }
 }
 
-// static EVENTS_CHANNEL: channel::Channel<CriticalSectionRawMutex, ServiceRouterEvent, 1> =
-//     channel::Channel::new();
-
-// pub struct EventRouter;
-
-// impl EventRouter {
-//     pub const fn new() -> Self {
-//         Self
-//     }
-
-//     pub fn events_sender() -> DynamicSender<'static, ServiceRouterEvent> {
-//         EVENTS_CHANNEL.dyn_sender()
-//     }
-
-//     pub fn events_receiver() -> DynamicReceiver<'static, ServiceRouterEvent> {
-//         EVENTS_CHANNEL.dyn_receiver()
-//     }
-// }
-//

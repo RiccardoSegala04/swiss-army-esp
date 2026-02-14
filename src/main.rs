@@ -26,10 +26,8 @@ use devices::ir::Infrared;
 
 mod ui;
 use ui::Style;
-use ui::views::DummyView;
-use ui::views::IrRxView;
-use ui::views::ListView;
-use ui::views::view::{ViewContext, Viewable};
+use ui::App;
+use ui::views::view::{ViewType, ViewContext, Viewable};
 
 mod services;
 use services::controller::ControllerService;
@@ -172,23 +170,9 @@ async fn main(spawner: Spawner) -> ! {
 
     let style = Style::normal();
 
-    let mut views = [
-        DummyView::new("View1").into(),
-        DummyView::new("View2").into(),
-        DummyView::new("View3").into(),
-        DummyView::new("View4").into(),
-    ];
-    let mut listview = ListView::new(&style, "TITLE", &mut views);
+    let mut app = App::new(&style, ctx);
 
-    let mut ir_rx_view = IrRxView::with_style(&style);
-
-    info!("Starting ListView");
-
-    // listview.run(&mut ctx).await.unwrap();
-
-    loop {
-        ir_rx_view.run(&mut ctx).await.unwrap();
-    }
-
-    // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.0.0/examples/src/bin
+    app.start(ViewType::ListView).await;
+    
+    loop {}
 }
