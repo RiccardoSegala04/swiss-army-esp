@@ -18,7 +18,9 @@ pub enum InfraredCommand {
 }
 
 pub enum InfraredEvent {
-    Signal(IrSignal)
+    Signal(IrSignal),
+    SignalTooLong,
+    NoSignal,
 }
 
 #[derive(Clone)]
@@ -38,6 +40,10 @@ impl IrSignal {
 
     fn push_timing(&mut self, timing: u16) -> Result<(), u16> {
         self.timings.push(timing)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.timings.is_empty()
     }
 }
 
@@ -85,7 +91,7 @@ where
         self.tx_off();
     }
 
-    pub async fn listen(&mut self) -> Option<IrSignal> {
+    pub async fn listen(&mut self) -> InfraredEvent {
         let mut signal = IrSignal::new();
         let mut last_edge: Option<Instant> = None;
 
@@ -109,7 +115,7 @@ where
 
                             match signal.push_timing(delta.as_micros().try_into().unwrap()) {
                                 Err(_) => {
-                                    return None;
+                                    return InfraredEvent::SignalTooLong;
                                 },
                                 Ok(()) => {},
                             };
@@ -123,7 +129,11 @@ where
             timeout = Timer::after(Duration::from_millis(50));
         }
 
-        Some(signal)
+        if signal.is_empty() {
+            return InfraredEvent::NoSignal;
+        }
+
+        InfraredEvent::Signal(signal)
     }
 }
 

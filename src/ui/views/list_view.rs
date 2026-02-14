@@ -65,7 +65,7 @@ impl<'a> ListView<'a> {
             Point::new(0, 0),
             Size::new(DISPLAY_WIDTH as u32, TOP_BAR_HEIGHT as u32),
         )
-        .into_styled(self.style.bar);
+        .into_styled(self.style.bar_bg);
 
         display.draw(&bar)?;
 

@@ -52,11 +52,8 @@ where
                 },
                 InfraredCommand::Listen => {
                     info!("Start listening");
-                    if let Some(signal) = self.ir.listen().await {
-                        self.send_event(InfraredEvent::Signal(signal)).await;
-                        info!("Signal event sended");
-                    }                    
-
+                    let ev = self.ir.listen().await;
+                    self.send_event(ev).await;
                 },
             }  
         }
