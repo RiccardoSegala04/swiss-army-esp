@@ -1,14 +1,11 @@
-use embedded_graphics::{
-    draw_target::DrawTarget, prelude::*, primitives::Rectangle, text::Text,
-};
-
+use embedded_graphics::{draw_target::DrawTarget, prelude::*, primitives::Rectangle, text::Text};
 
 use crate::services::router::RouterEvent;
 
 use crate::devices::controller::ControllerEvent;
 use crate::devices::display::Display;
 
-use super::view::{ViewType, Viewable, ViewContext};
+use super::view::{ViewContext, ViewType, Viewable};
 
 use crate::ui::Style;
 
@@ -45,7 +42,7 @@ impl<'a> ListView<'a> {
 
     pub fn draw<D>(&mut self, display: &mut D) -> Result<(), <D::Target as DrawTarget>::Error>
     where
-        D: Display
+        D: Display,
     {
         display.clear(self.style.color_bg)?;
 
@@ -59,7 +56,7 @@ impl<'a> ListView<'a> {
 
     fn draw_top_bar<D>(&self, display: &mut D) -> Result<(), <D::Target as DrawTarget>::Error>
     where
-        D: Display
+        D: Display,
     {
         let bar = Rectangle::new(
             Point::new(0, 0),
@@ -82,7 +79,7 @@ impl<'a> ListView<'a> {
 
     fn draw_list<D>(&mut self, display: &mut D) -> Result<(), <D::Target as DrawTarget>::Error>
     where
-        D: Display
+        D: Display,
     {
         let sel_idx = self.sel_idx;
         let hpad = self.hpad;
@@ -107,9 +104,8 @@ where
 {
     async fn run(
         &mut self,
-        context: &mut ViewContext<'_, D>
+        context: &mut ViewContext<'_, D>,
     ) -> Result<(), <D::Target as DrawTarget>::Error> {
-
         self.draw(context.display)?;
 
         loop {
@@ -122,7 +118,7 @@ where
                         ControllerEvent::NavPrevPressed => self.sel_idx = (self.sel_idx + 3) % 4,
                         _ => {}
                     };
-                },
+                }
                 _ => {}
             };
 
@@ -144,7 +140,7 @@ fn draw_marker<D>(
     style: &Style,
 ) -> Result<(), <D::Target as DrawTarget>::Error>
 where
-    D: Display
+    D: Display,
 {
     let base = Rectangle::new(
         Point::new(hpad as i32, y - MARKER_SIZE),
@@ -157,7 +153,6 @@ where
     };
 
     Ok(())
-
 }
 
 fn draw_item_text<D>(

@@ -1,10 +1,8 @@
+use embedded_graphics::{pixelcolor::BinaryColor, prelude::*};
 
-use embedded_graphics::{prelude::*, pixelcolor::BinaryColor};
-
-pub trait Display
-{
+pub trait Display {
     type Target: DrawTarget<Color = BinaryColor>;
-    
+
     fn draw<T>(&mut self, item: &T) -> Result<(), <Self::Target as DrawTarget>::Error>
     where
         T: Drawable<Color = <Self::Target as DrawTarget>::Color>;
@@ -20,9 +18,9 @@ pub trait Display
         Ok(())
     }
 
-    fn clear(&mut self, color: <Self::Target as DrawTarget>::Color) -> Result<(), <Self::Target as DrawTarget>::Error>;
+    fn clear(
+        &mut self,
+        color: <Self::Target as DrawTarget>::Color,
+    ) -> Result<(), <Self::Target as DrawTarget>::Error>;
     fn flush(&mut self);
 }
-
-
-

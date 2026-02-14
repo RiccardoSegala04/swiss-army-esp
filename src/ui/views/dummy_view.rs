@@ -1,8 +1,6 @@
 use embedded_graphics::draw_target::DrawTarget;
 
-
-
-use super::view::{Viewable, ViewContext};
+use super::view::{ViewContext, Viewable};
 
 use crate::devices::display::Display;
 
@@ -22,9 +20,8 @@ where
 {
     async fn run(
         &mut self,
-        context: &mut ViewContext<'_, D>
+        context: &mut ViewContext<'_, D>,
     ) -> Result<(), <D::Target as DrawTarget>::Error> {
-
         _ = context;
 
         Ok(())

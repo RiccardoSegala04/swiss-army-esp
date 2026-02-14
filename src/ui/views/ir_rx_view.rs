@@ -1,34 +1,25 @@
-use embedded_graphics::{
-    draw_target::DrawTarget,
-    prelude::*,
-    primitives::Rectangle,
-    text::Text,
-};
+use embedded_graphics::{draw_target::DrawTarget, prelude::*, primitives::Rectangle, text::Text};
 
 use defmt::info;
 
 use heapless::Vec;
 
-use super::view::{Viewable, ViewContext};
+use super::view::{ViewContext, Viewable};
 
 use crate::ui::Style;
 use crate::ui::elements::Button;
 use crate::ui::elements::IrSignalViewer;
 use crate::ui::elements::TopBar;
 
+use crate::devices::controller::ControllerEvent;
 use crate::devices::display::Display;
-use crate::devices::ir::{IrSignal, InfraredCommand, InfraredEvent};
-use crate::devices::controller::{ControllerEvent};
+use crate::devices::ir::{InfraredCommand, InfraredEvent, IrSignal};
 
-use crate::services::router::{RouterEvent, RouterCommand};
-
+use crate::services::router::{RouterCommand, RouterEvent};
 
 static SAMPLE_TIMINGS: &[u16] = &[
-    9000, 4500,
-    560, 560, 560, 560, 560, 560, 560, 560, 
-    560, 560, 560, 560, 560, 560, 560, 560, 
-    560, 1690, 560, 1690, 560, 1690, 560, 
-    560, 1690,
+    9000, 4500, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560,
+    560, 1690, 560, 1690, 560, 1690, 560, 560, 1690,
 ];
 
 pub struct IrRxView<'a> {
@@ -57,7 +48,7 @@ impl<'a> IrRxView<'a> {
 
     fn draw<D>(&self, display: &mut D) -> Result<(), <D::Target as DrawTarget>::Error>
     where
-        D: Display
+        D: Display,
     {
         display.clear(self.style.color_bg)?;
 
@@ -73,65 +64,60 @@ impl<'a> IrRxView<'a> {
 
         Ok(())
     }
-
 }
 
 impl<'a, D> Viewable<D> for IrRxView<'a>
 where
-    D: Display
+    D: Display,
 {
-
     async fn run(
         &mut self,
-        context: &mut ViewContext<'_, D>
+        context: &mut ViewContext<'_, D>,
     ) -> Result<(), <D::Target as DrawTarget>::Error> {
-
-
         loop {
-            
-
             self.draw(context.display)?;
 
             let ev = context.receiver.receive().await;
 
             match ev {
-                RouterEvent::ControllerEvent(ev) => {
-                    match ev {
-                        ControllerEvent::NavNextPressed => {
-                            if let Some(signal) = &self.last_signal {
-                                context.sender.send(RouterCommand::InfraredCommand(InfraredCommand::Play(signal.clone()))).await;
-                            } 
-                        },
-                        ControllerEvent::NavPrevPressed => {
-                            self.topbar.start_record();
-                            context.sender.send(RouterCommand::InfraredCommand(InfraredCommand::Listen)).await;
-                        },
-                        _ => {}
+                RouterEvent::ControllerEvent(ev) => match ev {
+                    ControllerEvent::NavNextPressed => {
+                        if let Some(signal) = &self.last_signal {
+                            context
+                                .sender
+                                .send(RouterCommand::InfraredCommand(InfraredCommand::Play(
+                                    signal.clone(),
+                                )))
+                                .await;
+                        }
                     }
+                    ControllerEvent::NavPrevPressed => {
+                        self.topbar.start_record();
+                        context
+                            .sender
+                            .send(RouterCommand::InfraredCommand(InfraredCommand::Listen))
+                            .await;
+                    }
+                    _ => {}
                 },
-                RouterEvent::InfraredEvent(ev) => {
-                    match ev {
-                        InfraredEvent::Signal(sig) => {
+                RouterEvent::InfraredEvent(ev) => match ev {
+                    InfraredEvent::Signal(sig) => {
+                        self.topbar.stop_record();
 
-                            self.topbar.stop_record();
+                        self.signal_viewer.set_signal(sig.clone());
 
-                            self.signal_viewer.set_signal(sig.clone());
-
-                            self.last_signal = Some(sig);
-
-                        },
-
-                        InfraredEvent::NoSignal | InfraredEvent::SignalTooLong => self.topbar.stop_record(),
-
-                        _ => {}
+                        self.last_signal = Some(sig);
                     }
-                }
+
+                    InfraredEvent::NoSignal | InfraredEvent::SignalTooLong => {
+                        self.topbar.stop_record()
+                    }
+
+                    _ => {}
+                },
                 _ => {}
             };
-
-
         }
-
     }
 
     fn title(&self) -> &str {

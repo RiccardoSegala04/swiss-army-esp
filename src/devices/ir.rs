@@ -4,9 +4,9 @@ use defmt::info;
 
 use embedded_hal::pwm::SetDutyCycle;
 
-use embassy_time::{Duration, Timer, Instant};
+use embassy_time::{Duration, Instant, Timer};
 
-use embassy_futures::select::{select, Either};
+use embassy_futures::select::{Either, select};
 
 use embedded_hal_async::digital::Wait;
 
@@ -14,7 +14,7 @@ use embedded_hal::digital::InputPin;
 
 pub enum InfraredCommand {
     Listen,
-    Play(IrSignal)
+    Play(IrSignal),
 }
 
 pub enum InfraredEvent {
@@ -26,16 +26,22 @@ pub enum InfraredEvent {
 #[derive(Clone)]
 pub struct IrSignal {
     pub timings: Vec<u16, 512>,
-    level_high: bool
+    level_high: bool,
 }
 
 impl IrSignal {
     pub fn new() -> Self {
-        Self { timings: Vec::new(), level_high: true }
+        Self {
+            timings: Vec::new(),
+            level_high: true,
+        }
     }
 
     pub fn with_timings(timings: Vec<u16, 512>) -> Self {
-        Self { timings: timings, level_high: true }
+        Self {
+            timings: timings,
+            level_high: true,
+        }
     }
 
     fn push_timing(&mut self, timing: u16) -> Result<(), u16> {
@@ -49,13 +55,13 @@ impl IrSignal {
 
 pub struct Infrared<PWM, InPin> {
     tx: PWM,
-    rx: InPin
+    rx: InPin,
 }
 
 impl<PWM, InPin> Infrared<PWM, InPin>
 where
     PWM: SetDutyCycle,
-    InPin: InputPin + Wait
+    InPin: InputPin + Wait,
 {
     pub fn new(mut tx: PWM, rx: InPin) -> Self {
         tx.set_duty_cycle_fully_off();
@@ -63,11 +69,11 @@ where
     }
 
     fn tx_on(&mut self) {
-        self.tx.set_duty_cycle_percent(50); 
+        self.tx.set_duty_cycle_percent(50);
     }
 
     fn tx_off(&mut self) {
-        self.tx.set_duty_cycle_fully_off(); 
+        self.tx.set_duty_cycle_fully_off();
     }
 
     fn tx_set(&mut self, tx: bool) {
@@ -81,11 +87,10 @@ where
     pub async fn transmit(&mut self, signal: &IrSignal) {
         let mut tx = true;
         for sample in &signal.timings {
-           
             self.tx_set(tx);
             tx = !tx;
 
-            Timer::after(Duration::from_micros(*sample as u64)).await;            
+            Timer::after(Duration::from_micros(*sample as u64)).await;
         }
 
         self.tx_off();
@@ -105,19 +110,17 @@ where
                     break;
                 }
                 Either::Second(_) => {
-
                     last_edge = match last_edge {
                         None => Some(Instant::now()),
                         Some(last_edge) => {
-                            
                             let now = Instant::now();
                             let delta = now - last_edge;
 
                             match signal.push_timing(delta.as_micros().try_into().unwrap()) {
                                 Err(_) => {
                                     return InfraredEvent::SignalTooLong;
-                                },
-                                Ok(()) => {},
+                                }
+                                Ok(()) => {}
                             };
 
                             Some(now)
@@ -136,5 +139,3 @@ where
         InfraredEvent::Signal(signal)
     }
 }
-
-

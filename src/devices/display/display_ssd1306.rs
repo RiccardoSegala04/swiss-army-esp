@@ -31,10 +31,7 @@ where
 {
     type Target = Ssd1306<DI, SIZE, BufferedGraphicsMode<SIZE>>;
 
-    fn draw<T>(
-        &mut self,
-        item: &T,
-    ) -> Result<(), <Self::Target as DrawTarget>::Error>
+    fn draw<T>(&mut self, item: &T) -> Result<(), <Self::Target as DrawTarget>::Error>
     where
         T: Drawable<Color = BinaryColor>,
     {
@@ -42,10 +39,7 @@ where
         Ok(())
     }
 
-    fn clear(
-        &mut self,
-        color: BinaryColor,
-    ) -> Result<(), <Self::Target as DrawTarget>::Error> {
+    fn clear(&mut self, color: BinaryColor) -> Result<(), <Self::Target as DrawTarget>::Error> {
         self.ssd.clear(color)
     }
 

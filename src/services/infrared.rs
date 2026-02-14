@@ -1,9 +1,7 @@
-
-
 use defmt::info;
 
-use embedded_hal::pwm::SetDutyCycle;
 use embedded_hal::digital::InputPin;
+use embedded_hal::pwm::SetDutyCycle;
 
 use embedded_hal_async::digital::Wait;
 
@@ -28,17 +26,19 @@ pub struct InfraredService<PWM, InPin> {
 impl<PWM, InPin> InfraredService<PWM, InPin>
 where
     PWM: SetDutyCycle,
-    InPin: InputPin + Wait
+    InPin: InputPin + Wait,
 {
-
-    pub fn new(events_sender: DynamicSender<'static, RouterEvent>, ir: Infrared<PWM, InPin>) -> Self {
+    pub fn new(
+        events_sender: DynamicSender<'static, RouterEvent>,
+        ir: Infrared<PWM, InPin>,
+    ) -> Self {
         Self {
             commands_receiver: INFRARED_COMMANDS_CHANNEL.dyn_receiver(),
             events_sender,
             ir,
         }
     }
-   
+
     pub fn command_sender() -> DynamicSender<'static, InfraredCommand> {
         INFRARED_COMMANDS_CHANNEL.dyn_sender()
     }
@@ -49,13 +49,13 @@ where
             match comm {
                 InfraredCommand::Play(sig) => {
                     self.ir.transmit(&sig).await;
-                },
+                }
                 InfraredCommand::Listen => {
                     info!("Start listening");
                     let ev = self.ir.listen().await;
                     self.send_event(ev).await;
-                },
-            }  
+                }
+            }
         }
     }
 

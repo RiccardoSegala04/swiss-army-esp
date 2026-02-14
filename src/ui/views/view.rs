@@ -1,13 +1,11 @@
-use embedded_graphics::{
-    draw_target::DrawTarget
-};
+use embedded_graphics::draw_target::DrawTarget;
 
 use crate::devices::display::Display;
 
 use super::dummy_view::DummyView;
 use super::list_view::ListView;
 
-use crate::services::router::{RouterEvent, RouterCommand};
+use crate::services::router::{RouterCommand, RouterEvent};
 
 use embassy_sync::channel::{DynamicReceiver, DynamicSender};
 
@@ -22,24 +20,28 @@ where
 
 impl<'a, D> ViewContext<'a, D>
 where
-    D: Display
+    D: Display,
 {
-    pub fn new(display: &'a mut D, receiver: DynamicReceiver<'static, RouterEvent>, sender: DynamicSender<'static, RouterCommand>) -> Self {
+    pub fn new(
+        display: &'a mut D,
+        receiver: DynamicReceiver<'static, RouterEvent>,
+        sender: DynamicSender<'static, RouterCommand>,
+    ) -> Self {
         Self {
             display,
             receiver,
-            sender
-        }       
+            sender,
+        }
     }
 }
 
 pub trait Viewable<D>
 where
-    D: Display
+    D: Display,
 {
     async fn run(
         &mut self,
-        context: &mut ViewContext<D>
+        context: &mut ViewContext<D>,
     ) -> Result<(), <D::Target as DrawTarget>::Error>;
 
     fn title(&self) -> &str;
@@ -56,9 +58,8 @@ where
 {
     async fn run(
         &mut self,
-        context: &mut ViewContext<'_, D>
+        context: &mut ViewContext<'_, D>,
     ) -> Result<(), <D::Target as DrawTarget>::Error> {
-        
         match self {
             ViewType::ListView(v) => v.run(context).await?,
             ViewType::DummyView(v) => v.run(context).await?,

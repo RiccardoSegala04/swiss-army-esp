@@ -25,11 +25,14 @@ pub struct RouterService<'a> {
 }
 
 impl<'a> RouterService<'a> {
-    pub fn new(controller_channel: DynamicSender<'static, controller::ControllerCommand>, infrared_channel: DynamicSender<'static, ir::InfraredCommand>) -> Self {
+    pub fn new(
+        controller_channel: DynamicSender<'static, controller::ControllerCommand>,
+        infrared_channel: DynamicSender<'static, ir::InfraredCommand>,
+    ) -> Self {
         Self {
             router_channel: COMMANDS_CHANNEL.dyn_receiver(),
             controller_channel,
-            infrared_channel
+            infrared_channel,
         }
     }
 
@@ -43,10 +46,10 @@ impl<'a> RouterService<'a> {
             match comm {
                 RouterCommand::ControllerCommand(c) => {
                     self.controller_channel.send(c).await;
-                },
+                }
                 RouterCommand::InfraredCommand(c) => {
                     self.infrared_channel.send(c).await;
-                },
+                }
             }
         }
     }
