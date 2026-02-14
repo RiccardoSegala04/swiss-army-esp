@@ -14,8 +14,6 @@ use defmt::info;
 use embassy_executor::{Spawner, task};
 use esp_hal::gpio::{DriveMode, Input, InputConfig, Level, Output, OutputConfig, Pull};
 
-use embedded_hal::digital::InputPin;
-use embedded_hal_async::digital::Wait;
 
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;

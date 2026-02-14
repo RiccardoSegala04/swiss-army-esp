@@ -1,6 +1,5 @@
 use heapless::Vec;
 
-use defmt::info;
 
 use embedded_hal::pwm::SetDutyCycle;
 

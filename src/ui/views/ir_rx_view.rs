@@ -1,8 +1,6 @@
-use embedded_graphics::{draw_target::DrawTarget, prelude::*, primitives::Rectangle, text::Text};
+use embedded_graphics::{draw_target::DrawTarget, prelude::*};
 
-use defmt::info;
 
-use heapless::Vec;
 
 use super::view::{ViewContext, Viewable};
 
