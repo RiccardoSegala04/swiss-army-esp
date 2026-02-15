@@ -5,8 +5,9 @@ use crate::devices::display::Display;
 use crate::ui::Style;
 
 use super::dummy_view::DummyView;
-use super::list_view::ListView;
+use super::main_menu_view::MainMenuView;
 use super::ir_rx_view::IrRxView;
+use super::ir_saved_view::IrSavedView;
 
 use crate::services::router::{RouterCommand, RouterEvent};
 
@@ -19,16 +20,18 @@ pub enum ViewAction {
 
 #[derive(Clone)]
 pub enum ViewType {
-    ListView,
+    MainMenuView,
     IrRxView,
+    IrSavedView,
     DummyView(&'static str),
 }
 
 impl ViewType {
     pub fn title(&self) -> &'static str {
         match self {
-            ViewType::ListView => "PIPU ZERO",
+            ViewType::MainMenuView => "PIPU ZERO",
             ViewType::IrRxView => "IR RX",
+            ViewType::IrSavedView => "IR SAVED",
             ViewType::DummyView(t) => t,
         }
     }
@@ -39,15 +42,16 @@ impl ViewType {
         context: &mut ViewContext<'_, D>,
     ) -> Result<ViewAction, <D::Target as DrawTarget>::Error> {
         match self {
-            ViewType::ListView => ListView::new(style).run(context).await,
+            ViewType::MainMenuView => MainMenuView::new(style).run(context).await,
             ViewType::IrRxView => IrRxView::new(style).run(context).await,
+            ViewType::IrSavedView => IrSavedView::new(style).await.run(context).await,
             ViewType::DummyView(t) => DummyView::new(t).run(context).await
         }
     }
 }
 
 // pub enum ViewType<'a> {
-//     ListView(ListView<'a>),
+//     MainMenuView(MainMenuView<'a>),
 //     DummyView(DummyView<'a>),
 //     IrRxView(IrRxView<'a>)
 // }
@@ -58,9 +62,9 @@ impl ViewType {
 //     }
 // }
 
-// impl<'a> From<ListView<'a>> for ViewType<'a> {
-//     fn from(v: ListView<'a>) -> ViewType<'a> {
-//         ViewType::ListView(v)
+// impl<'a> From<MainMenuView<'a>> for ViewType<'a> {
+//     fn from(v: MainMenuView<'a>) -> ViewType<'a> {
+//         ViewType::MainMenuView(v)
 //     }
 // }
 

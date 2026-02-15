@@ -80,12 +80,14 @@ impl<'a> IrRxView<'a> {
         }
     }
 
-    fn handle_infrared_event(&mut self, ev: InfraredEvent) {
+    async fn handle_infrared_event(&mut self, ev: InfraredEvent) {
         match ev {
             InfraredEvent::Signal(sig) => {
                 self.topbar.stop_record();
 
                 self.signal_viewer.set_signal(sig.clone());
+
+                crate::devices::ir::SIGNAL_HISTORY.get().lock().await.push(sig.clone());
 
                 self.last_signal = Some(sig);
 
@@ -139,7 +141,7 @@ where
                     ControllerEvent::BackPressed => return Ok(ViewAction::Exit),
                     _ => {}
                 },
-                RouterEvent::InfraredEvent(ev) => self.handle_infrared_event(ev),
+                RouterEvent::InfraredEvent(ev) => self.handle_infrared_event(ev).await,
                 _ => {}
             };
         }

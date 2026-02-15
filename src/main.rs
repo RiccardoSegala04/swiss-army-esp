@@ -283,7 +283,7 @@ async fn main(spawner: Spawner) -> ! {
 
     let mut app = App::new(&style, ctx);
 
-    app.start(ViewType::ListView).await;
+    app.start(ViewType::MainMenuView).await;
     
     loop {}
 }
