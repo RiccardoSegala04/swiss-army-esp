@@ -1,8 +1,8 @@
 pub mod elements;
 pub mod views;
 
-pub mod style;
 pub mod app;
+pub mod style;
 
-pub use style::Style;
 pub use app::App;
+pub use style::Style;

@@ -1,6 +1,6 @@
 use embedded_graphics::draw_target::DrawTarget;
 
-use super::view::{ViewContext, Viewable, ViewAction};
+use super::view::{ViewAction, ViewContext, Viewable};
 
 use crate::devices::display::Display;
 
@@ -27,5 +27,4 @@ where
 
         Ok(ViewAction::Exit)
     }
-
 }

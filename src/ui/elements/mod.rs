@@ -1,11 +1,11 @@
-pub mod element;
 pub mod button;
+pub mod element;
 pub mod ir_signal_viewer;
-pub mod top_bar;
 pub mod list;
+pub mod top_bar;
 
-pub use element::ElementType;
 pub use button::Button;
+pub use element::ElementType;
 pub use ir_signal_viewer::IrSignalViewer;
-pub use top_bar::TopBar;
 pub use list::List;
+pub use top_bar::TopBar;

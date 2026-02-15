@@ -26,13 +26,13 @@ use devices::ir::Infrared;
 
 mod ui;
 use ui::Style;
-use ui::{app, App};
-use ui::views::view::{ViewType, ViewContext, Viewable};
+use ui::views::view::{ViewContext, ViewType, Viewable};
+use ui::{App, app};
 
 mod services;
+use services::cli::CliService;
 use services::controller::ControllerService;
 use services::infrared::InfraredService;
-use services::cli::CliService;
 use services::router::{RouterEvent, RouterService};
 
 use esp_hal::ledc::channel::{self, ChannelIFace};
@@ -48,18 +48,11 @@ use core::{net::Ipv4Addr, str::FromStr};
 use embassy_time::{Duration, Timer};
 
 use embassy_net::{
-    IpListenEndpoint,
-    Ipv4Cidr,
-    Runner,
-    Stack,
-    StackResources,
-    StaticConfigV4,
-    tcp::TcpSocket,
+    IpListenEndpoint, Ipv4Cidr, Runner, Stack, StackResources, StaticConfigV4, tcp::TcpSocket,
 };
 
 use esp_hal::rng::Rng;
-use esp_radio::wifi::{WifiDevice, ModeConfig, AccessPointConfig};
-
+use esp_radio::wifi::{AccessPointConfig, ModeConfig, WifiDevice};
 
 macro_rules! mk_static {
     ($t:ty,$val:expr) => {{
@@ -80,7 +73,6 @@ extern crate alloc;
 // This creates a default app-descriptor required by the esp-idf bootloader.
 // For more information see: <https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/app_image_format.html#application-description>
 esp_bootloader_esp_idf::esp_app_desc!();
-
 
 #[task]
 pub async fn router_task(mut service: RouterService<'static>) {
@@ -219,8 +211,9 @@ async fn main(spawner: Spawner) -> ! {
         seed,
     );
 
-    let ap_config =
-        ModeConfig::AccessPoint(AccessPointConfig::default().with_ssid("esp-radio".to_string()));
+    let ap_config = ModeConfig::AccessPoint(
+        AccessPointConfig::default().with_ssid("swiss-army-esp".to_string()),
+    );
 
     controller.set_config(&ap_config).unwrap();
     controller.start_async().await.unwrap();
@@ -230,9 +223,7 @@ async fn main(spawner: Spawner) -> ! {
 
     stack.wait_config_up().await;
 
-    stack
-        .config_v4().unwrap();
-
+    stack.config_v4().unwrap();
 
     // Display Instantiation
     let i2c_config = I2cConfig::default().with_frequency(Rate::from_khz(400));
@@ -301,10 +292,8 @@ async fn main(spawner: Spawner) -> ! {
     let mut app = App::new(&style, &mut display);
 
     app.start(ViewType::MainMenuView).await;
-    
-    loop {
 
+    loop {
         Timer::after(Duration::from_millis(2000)).await;
-        
     }
 }

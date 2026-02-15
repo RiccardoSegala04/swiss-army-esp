@@ -6,10 +6,10 @@ use crate::services::router::RouterEvent;
 use crate::devices::controller::ControllerEvent;
 use crate::devices::display::Display;
 
-use super::view::{ViewContext, ViewType, Viewable, ViewAction};
+use super::view::{ViewAction, ViewContext, ViewType, Viewable};
 
-use crate::ui::elements::{TopBar, List};
 use crate::ui::Style;
+use crate::ui::elements::{List, TopBar};
 
 const TOP_BAR_HEIGHT: i32 = 16;
 const DISPLAY_WIDTH: i32 = 128;
@@ -29,9 +29,7 @@ pub struct MainMenuView<'a> {
 }
 
 impl<'a> MainMenuView<'a> {
-
     pub fn new(style: &'a Style) -> Self {
-
         let elem = Vec::from_array([
             ViewType::IrRxView,
             ViewType::IrSavedView,
@@ -44,7 +42,12 @@ impl<'a> MainMenuView<'a> {
         let elem_str: Vec<&str, 10> = elem.iter().map(|v| v.title()).collect();
 
         Self {
-            list: List::new(style, Point::new(4, 20), Size::new(128-8, 64-16-8), elem_str),
+            list: List::new(
+                style,
+                Point::new(4, 20),
+                Size::new(128 - 8, 64 - 16 - 8),
+                elem_str,
+            ),
             topbar: TopBar::new(style, "Swiss Army Esp"),
             elements: elem,
             style,
@@ -55,7 +58,6 @@ impl<'a> MainMenuView<'a> {
     where
         D: Display,
     {
-
         display.clear(self.style.color_bg)?;
 
         display.draw(&self.topbar)?;
@@ -76,8 +78,6 @@ where
         &mut self,
         context: &mut ViewContext<'_, D>,
     ) -> Result<ViewAction, <D::Target as DrawTarget>::Error> {
-
-
         loop {
             self.draw(context.display)?;
 
@@ -88,7 +88,11 @@ where
                     match ev {
                         ControllerEvent::NavNextPressed => self.list.select_next(),
                         ControllerEvent::NavPrevPressed => self.list.select_prev(),
-                        ControllerEvent::ConfirmPressed => return Ok(ViewAction::SwitchTo(self.elements[self.list.selected_index()].clone())),
+                        ControllerEvent::ConfirmPressed => {
+                            return Ok(ViewAction::SwitchTo(
+                                self.elements[self.list.selected_index()].clone(),
+                            ));
+                        }
                         _ => {}
                     };
                 }
@@ -98,6 +102,4 @@ where
             self.draw(context.display)?;
         }
     }
-
 }
-

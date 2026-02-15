@@ -12,10 +12,9 @@ use embedded_hal_async::digital::Wait;
 
 use embedded_hal::digital::InputPin;
 
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::lazy_lock::LazyLock;
 use embassy_sync::mutex::Mutex;
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-
 
 pub static SIGNAL_HISTORY: LazyLock<Mutex<CriticalSectionRawMutex, Vec<IrSignal, 5>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
@@ -147,7 +146,7 @@ where
         }
 
         info!("Signal length: {}", signal.timings.len());
-        
+
         SIGNAL_HISTORY.get().lock().await.push(signal.clone());
 
         InfraredEvent::Signal(signal)

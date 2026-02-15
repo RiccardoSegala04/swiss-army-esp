@@ -1,17 +1,16 @@
-
 use defmt::info;
 use embedded_graphics::{draw_target::DrawTarget, prelude::*, text::Text};
-use heapless::{Vec, String};
+use heapless::{String, Vec};
 
 use crate::devices::controller::ControllerEvent;
 use crate::devices::display::Display;
 use crate::devices::ir::{InfraredCommand, InfraredEvent, IrSignal};
 use crate::services::router::{RouterCommand, RouterEvent};
 
-use super::view::{ViewContext, ViewType, Viewable, ViewAction};
+use super::view::{ViewAction, ViewContext, ViewType, Viewable};
 
-use crate::ui::elements::{TopBar, List};
 use crate::ui::Style;
+use crate::ui::elements::{List, TopBar};
 
 const TOP_BAR_HEIGHT: i32 = 16;
 const DISPLAY_WIDTH: i32 = 128;
@@ -30,9 +29,7 @@ pub struct IrSavedView<'a> {
 }
 
 impl<'a> IrSavedView<'a> {
-
     pub async fn new(style: &'a Style) -> Self {
-
         // Lock the signal history
         let history_lock = crate::devices::ir::SIGNAL_HISTORY.get().lock().await;
 
@@ -44,7 +41,12 @@ impl<'a> IrSavedView<'a> {
         }
 
         Self {
-            list: List::new(style, Point::new(4, 20), Size::new(128-8, 64-16-8), elem_str),
+            list: List::new(
+                style,
+                Point::new(4, 20),
+                Size::new(128 - 8, 64 - 16 - 8),
+                elem_str,
+            ),
             topbar: TopBar::new(style, "IR SAVED"),
             style,
         }
@@ -54,7 +56,6 @@ impl<'a> IrSavedView<'a> {
     where
         D: Display,
     {
-
         display.clear(self.style.color_bg)?;
 
         display.draw(&self.topbar)?;
@@ -85,7 +86,20 @@ where
                     match ev {
                         ControllerEvent::NavNextPressed => self.list.select_next(),
                         ControllerEvent::NavPrevPressed => self.list.select_prev(),
-                        ControllerEvent::ConfirmPressed => context.sender.send(RouterCommand::InfraredCommand(InfraredCommand::Play(crate::devices::ir::SIGNAL_HISTORY.get().lock().await.get(self.list.selected_index()).unwrap().clone()))).await,
+                        ControllerEvent::ConfirmPressed => {
+                            context
+                                .sender
+                                .send(RouterCommand::InfraredCommand(InfraredCommand::Play(
+                                    crate::devices::ir::SIGNAL_HISTORY
+                                        .get()
+                                        .lock()
+                                        .await
+                                        .get(self.list.selected_index())
+                                        .unwrap()
+                                        .clone(),
+                                )))
+                                .await
+                        }
                         ControllerEvent::BackPressed => return Ok(ViewAction::Exit),
                         _ => {}
                     };
@@ -96,6 +110,4 @@ where
             self.draw(context.display)?;
         }
     }
-
 }
-

@@ -5,9 +5,9 @@ use crate::devices::display::Display;
 use crate::ui::Style;
 
 use super::dummy_view::DummyView;
-use super::main_menu_view::MainMenuView;
 use super::ir_rx_view::IrRxView;
 use super::ir_saved_view::IrSavedView;
+use super::main_menu_view::MainMenuView;
 
 use crate::services::router::{RouterCommand, RouterEvent};
 
@@ -15,7 +15,7 @@ use embassy_sync::channel::{DynamicReceiver, DynamicSender};
 
 pub enum ViewAction {
     SwitchTo(ViewType),
-    Exit
+    Exit,
 }
 
 #[derive(Clone)]
@@ -45,7 +45,7 @@ impl ViewType {
             ViewType::MainMenuView => MainMenuView::new(style).run(context).await,
             ViewType::IrRxView => IrRxView::new(style).await.run(context).await,
             ViewType::IrSavedView => IrSavedView::new(style).await.run(context).await,
-            ViewType::DummyView(t) => DummyView::new(t).run(context).await
+            ViewType::DummyView(t) => DummyView::new(t).run(context).await,
         }
     }
 }
@@ -108,5 +108,4 @@ where
         &mut self,
         context: &mut ViewContext<D>,
     ) -> Result<ViewAction, <D::Target as DrawTarget>::Error>;
-
 }

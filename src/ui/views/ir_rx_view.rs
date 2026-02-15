@@ -1,10 +1,10 @@
 use embedded_graphics::{draw_target::DrawTarget, prelude::*};
 
-use super::view::{ViewContext, Viewable, ViewAction};
+use super::view::{ViewAction, ViewContext, Viewable};
 
 use crate::ui::Style;
-use crate::ui::elements::ElementType;
 use crate::ui::elements::Button;
+use crate::ui::elements::ElementType;
 use crate::ui::elements::IrSignalViewer;
 use crate::ui::elements::TopBar;
 
@@ -32,11 +32,21 @@ pub struct IrRxView<'a> {
 
 impl<'a> IrRxView<'a> {
     pub async fn new(style: &'a Style) -> Self {
-        let last_sig = crate::devices::ir::SIGNAL_HISTORY.get().lock().await.last().cloned();
+        let last_sig = crate::devices::ir::SIGNAL_HISTORY
+            .get()
+            .lock()
+            .await
+            .last()
+            .cloned();
         Self {
             last_signal: last_sig.clone(),
             topbar: TopBar::new(style, "IR_RX"),
-            signal_viewer: IrSignalViewer::selected_new(style, last_sig.clone(), Point::new(63, 31), Size::new(118, 23)),
+            signal_viewer: IrSignalViewer::selected_new(
+                style,
+                last_sig.clone(),
+                Point::new(63, 31),
+                Size::new(118, 23),
+            ),
             elements: [
                 Button::selected_new(style, "RECORD", Point::new(33, 53), Size::new(57, 13)).into(),
                 Button::new(style, "REPLAY", Point::new(94, 53), Size::new(57, 13)).into(),
@@ -58,7 +68,6 @@ impl<'a> IrRxView<'a> {
         self.elements[self.sel_idx].select();
     }
 
-
     async fn confirm_pressed<D: Display>(&mut self, context: &mut ViewContext<'_, D>) {
         match self.sel_idx {
             0 => {
@@ -73,7 +82,9 @@ impl<'a> IrRxView<'a> {
                     self.topbar.start_record();
                     context
                         .sender
-                        .send(RouterCommand::InfraredCommand(InfraredCommand::Play(signal.clone())))
+                        .send(RouterCommand::InfraredCommand(InfraredCommand::Play(
+                            signal.clone(),
+                        )))
                         .await;
                 }
             }
@@ -89,11 +100,8 @@ impl<'a> IrRxView<'a> {
                 self.signal_viewer.set_signal(sig.clone());
 
                 self.last_signal = Some(sig);
-
             }
-            InfraredEvent::NoSignal | InfraredEvent::SignalTooLong => {
-                self.topbar.stop_record()
-            },
+            InfraredEvent::NoSignal | InfraredEvent::SignalTooLong => self.topbar.stop_record(),
             InfraredEvent::SignalPlayed => self.topbar.stop_record(),
             _ => {}
         }
@@ -145,5 +153,4 @@ where
             };
         }
     }
-
 }

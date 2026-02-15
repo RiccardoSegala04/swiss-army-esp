@@ -1,7 +1,7 @@
 use defmt::info;
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::channel::{DynamicReceiver, DynamicSender, Channel};
 use embassy_futures::select::{Either, select};
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::channel::{Channel, DynamicReceiver, DynamicSender};
 
 use crate::devices::controller;
 use crate::devices::ir;
@@ -78,7 +78,6 @@ impl<'a> RouterService<'a> {
 
     pub async fn run(&mut self) -> ! {
         loop {
-
             let ev = self.event_channel.receive();
             let comm = self.command_channel.receive();
 
@@ -86,9 +85,6 @@ impl<'a> RouterService<'a> {
                 Either::First(ev) => self.route_event(ev).await,
                 Either::Second(comm) => self.route_command(comm).await,
             }
-
         }
     }
-
 }
-

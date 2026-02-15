@@ -1,4 +1,3 @@
-
 use embedded_hal::digital::InputPin;
 use embedded_hal::pwm::SetDutyCycle;
 

@@ -1,10 +1,6 @@
-use embedded_graphics::{
-    draw_target::DrawTarget,
-    pixelcolor::BinaryColor,
-    prelude::*,
-};
+use embedded_graphics::{draw_target::DrawTarget, pixelcolor::BinaryColor, prelude::*};
 
-use crate::ui::elements::{ir_signal_viewer, button};
+use crate::ui::elements::{button, ir_signal_viewer};
 
 pub enum ElementType<'a> {
     Button(button::Button<'a>),

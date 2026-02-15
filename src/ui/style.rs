@@ -25,11 +25,10 @@ pub struct Style {
 
 impl Style {
     pub fn normal() -> Self {
-
         let mut text_selected_big = MonoTextStyle::new(&FONT_6X10, BinaryColor::Off);
         let mut text_selected_small = MonoTextStyle::new(&FONT_4X6, BinaryColor::Off);
-        text_selected_big.set_background_color(Some(BinaryColor::On)); 
-        text_selected_small.set_background_color(Some(BinaryColor::On)); 
+        text_selected_big.set_background_color(Some(BinaryColor::On));
+        text_selected_small.set_background_color(Some(BinaryColor::On));
 
         Self {
             text_bar_big: MonoTextStyle::new(&FONT_6X10, BinaryColor::Off),
@@ -48,11 +47,10 @@ impl Style {
     }
 
     pub fn inverted() -> Self {
-
         let mut text_selected_big = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
         let mut text_selected_small = MonoTextStyle::new(&FONT_4X6, BinaryColor::On);
-        text_selected_big.set_background_color(Some(BinaryColor::Off)); 
-        text_selected_small.set_background_color(Some(BinaryColor::Off)); 
+        text_selected_big.set_background_color(Some(BinaryColor::Off));
+        text_selected_small.set_background_color(Some(BinaryColor::Off));
 
         Self {
             text_bar_big: MonoTextStyle::new(&FONT_6X10, BinaryColor::On),
