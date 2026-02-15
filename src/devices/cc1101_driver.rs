@@ -20,7 +20,6 @@ where
 
     pub async fn write_reg(&mut self, reg: Register, value: u8) -> Result<(), <SPId>::Error> {
         let address = (reg as u8) | (RegOffset::Write as u8);
-
         self.cc1101_spi
             .transaction(&mut [
                 Write(&[address]), //
@@ -89,12 +88,17 @@ where
         Ok(StatusByte::from_bits(reply[0]))
     }
 
-    pub async fn set_reg_bit(&mut self, active: bool, reg: Register) -> Result<(), <SPId>::Error> {
+    pub async fn set_reg_bit(
+        &mut self,
+        active: bool,
+        reg: Register,
+        bit: u8,
+    ) -> Result<(), <SPId>::Error> {
         let reg_before = self.read_reg(reg).await?;
         let reg_new = if active {
-            reg_before | 0x40
+            reg_before | (1 << bit)
         } else {
-            reg_before & !0x40
+            reg_before & !(1 << bit)
         };
         self.write_reg(reg, reg_new).await
     }
@@ -208,7 +212,7 @@ pub enum StrobeCmd {
 }
 
 #[repr(u8)]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, defmt::Format)]
 pub enum State {
     Idle = 0b000,
     Rx = 0b001,
@@ -250,6 +254,15 @@ pub struct StatusByte {
     pub state: State,
     /// The bits attribute specifies the bit size of this f
     pub ready: bool,
+}
+
+#[repr(u8)]
+pub enum Modulation {
+    Mod_2Fsk = 0b000,
+    Mod_Gfsk = 0b001,
+    Mod_Ook = 0b011,
+    Mod_4Fsk = 0b100,
+    Mod_MsK = 0b111,
 }
 
 #[repr(u8)]

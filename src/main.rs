@@ -11,8 +11,12 @@
 )]
 
 use crate::alloc::string::ToString;
-use defmt::info;
+use defmt::{error, info, unwrap};
 use embassy_executor::{Spawner, task};
+use embassy_time::Delay;
+use embassy_time::Duration;
+use embassy_time::Timer;
+use embedded_time::rate::Hertz;
 use esp_hal::gpio::{DriveMode, Input, InputConfig, Level, Output, OutputConfig, Pull};
 
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
@@ -25,9 +29,9 @@ use devices::display::DisplaySsd1306;
 use devices::ir::Infrared;
 
 mod ui;
-use ui::Style;
 use ui::App;
-use ui::views::view::{ViewType, ViewContext, Viewable};
+use ui::Style;
+use ui::views::view::{ViewContext, ViewType, Viewable};
 
 mod services;
 use services::controller::ControllerService;
@@ -38,25 +42,16 @@ use esp_hal::ledc::channel::{self, ChannelIFace};
 use esp_hal::ledc::timer::{self, TimerIFace};
 use esp_hal::ledc::{self, LSGlobalClkSource, Ledc, LowSpeed};
 
-use esp_hal::i2c::master::I2c;
-use esp_hal::{i2c::master::Config as I2cConfig, time::Rate};
+use esp_hal::i2c::master::{Config as I2cConfig, I2c};
+use esp_hal::time::Rate;
 use ssd1306::{I2CDisplayInterface, Ssd1306, prelude::*};
 
 use core::{net::Ipv4Addr, str::FromStr};
 
-use embassy_time::{Duration, Timer};
-
-use embassy_net::{
-    Ipv4Cidr,
-    Runner,
-    Stack,
-    StackResources,
-    StaticConfigV4,
-};
+use embassy_net::{Ipv4Cidr, Runner, Stack, StackResources, StaticConfigV4};
 
 use esp_hal::rng::Rng;
-use esp_radio::wifi::{WifiDevice, ModeConfig, AccessPointConfig};
-
+use esp_radio::wifi::{AccessPointConfig, ModeConfig, WifiDevice};
 
 macro_rules! mk_static {
     ($t:ty,$val:expr) => {{
@@ -66,6 +61,15 @@ macro_rules! mk_static {
         x
     }};
 }
+
+use esp_hal::spi::{
+    BitOrder as SpiBitOrder, Mode as SpiMode,
+    master::{Config as SpiConfig, Spi},
+};
+
+use embedded_hal_bus::spi::ExclusiveDevice;
+
+use crate::devices::cc1101::CC1101;
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -171,7 +175,7 @@ async fn main(spawner: Spawner) -> ! {
     rtt_target::rtt_init_defmt!();
 
     let config = esp_hal::Config::default();
-    let peripherals = esp_hal::init(config);
+    let mut peripherals = esp_hal::init(config);
 
     esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 73744);
 
@@ -252,38 +256,102 @@ async fn main(spawner: Spawner) -> ! {
         ),
     );
 
-    let controller_service = ControllerService::new(EVENT_CHANNEL.dyn_sender(), controller);
+    let spi_config = SpiConfig::default()
+        .with_frequency(Rate::from_mhz(5))
+        .with_mode(SpiMode::_0)
+        .with_read_bit_order(SpiBitOrder::MsbFirst)
+        .with_write_bit_order(SpiBitOrder::MsbFirst);
 
-    // Infrared Instantiation
-    let led = Output::new(peripherals.GPIO8, Level::High, OutputConfig::default());
-    let ir_rx = Input::new(peripherals.GPIO3, InputConfig::default());
-    let mut ledc = Ledc::new(peripherals.LEDC);
+    let _spi = Spi::new(peripherals.SPI2, spi_config)
+        .unwrap()
+        .with_sck(peripherals.GPIO12)
+        .with_mosi(peripherals.GPIO10)
+        .with_miso(peripherals.GPIO11)
+        .into_async();
 
+    let mut cc1101_csn = Output::new(peripherals.GPIO9, Level::High, OutputConfig::default());
 
-    // Router Service
-    let router_service = RouterService::new(
-        ControllerService::<Input>::command_sender(),
-        InfraredService::<ledc::channel::Channel<'static, LowSpeed>, Input>::command_sender(),
+    let spi_cc1101 = ExclusiveDevice::new(_spi, cc1101_csn, Delay).unwrap();
+
+    use devices::cc1101_driver::CC1101Driver;
+    let cc1101_driver = CC1101Driver::new(spi_cc1101).await;
+    let mut cc1101 = CC1101::new(cc1101_driver).await.unwrap();
+
+    info!("cc1101 initialized");
+    info!(
+        "CC1101 version: {}",
+        cc1101
+            .chip
+            .read_status(devices::cc1101_driver::StatusReg::VERSION)
+            .await
+            .unwrap()
     );
 
-    // Context Instantiation
-    let receiver = EVENT_CHANNEL.dyn_receiver();
-    let mut ctx = ViewContext::new(&mut display, receiver, RouterService::command_sender());
+    /*
+        let led = Output::new(peripherals.GPIO8, Level::High, OutputConfig::default());
+        let ir_rx = Input::new(peripherals.GPIO3, InputConfig::default());
 
-    // Starting Tasks
-    info!("Starting Router Task");
-    spawner.spawn(router_task(router_service)).unwrap();
-    info!("Starting Controller Task");
-    spawner.spawn(controller_task(controller_service)).unwrap();
-    info!("Starting Infrared Task");
-    spawner.spawn(infrared_task(led, ledc, ir_rx)).unwrap();
+        let mut ledc = Ledc::new(peripherals.LEDC);
+
+    >>>>>>> Stashed changes
+        let controller_service = ControllerService::new(EVENT_CHANNEL.dyn_sender(), controller);
+
+        // Infrared Instantiation
+        let led = Output::new(peripherals.GPIO8, Level::High, OutputConfig::default());
+        let ir_rx = Input::new(peripherals.GPIO3, InputConfig::default());
+        let mut ledc = Ledc::new(peripherals.LEDC);
 
 
-    let style = Style::normal();
+        // Router Service
+        let router_service = RouterService::new(
+            ControllerService::<Input>::command_sender(),
+            InfraredService::<ledc::channel::Channel<'static, LowSpeed>, Input>::command_sender(),
+        );
 
-    let mut app = App::new(&style, ctx);
+        // Context Instantiation
+        let receiver = EVENT_CHANNEL.dyn_receiver();
+        let mut ctx = ViewContext::new(&mut display, receiver, RouterService::command_sender());
 
-    app.start(ViewType::MainMenuView).await;
-    
-    loop {}
+        // Starting Tasks
+        info!("Starting Router Task");
+        spawner.spawn(router_task(router_service)).unwrap();
+        info!("Starting Controller Task");
+        spawner.spawn(controller_task(controller_service)).unwrap();
+        info!("Starting Infrared Task");
+        spawner.spawn(infrared_task(led, ledc, ir_rx)).unwrap();
+
+
+        let style = Style::normal();
+
+        let mut app = App::new(&style, ctx);
+
+        let mut ir_rx_view = IrRxView::with_style(&style);
+
+        info!("Starting ListView");
+
+        // listview.run(&mut ctx).await.unwrap();
+        */
+    cc1101.set_frequency(Hertz::new(433000000)).await.unwrap();
+    cc1101
+        .set_modulation(devices::cc1101_driver::Modulation::Mod_Ook)
+        .await
+        .unwrap();
+    cc1101
+        .send_packet(&[
+            40, 34, 6, 8, 2, 3, 5, 7, 3, 2, 2, 34, 6, 8, 2, 3, 5, 7, 3, 2, 2, 34, 6, 8, 2, 3, 5, 7,
+            3, 2, 2, 34, 6, 8, 2, 3, 5, 7, 3, 2, 2,
+        ])
+        .await
+        .unwrap();
+
+    loop {
+        //    ir_rx_view.run(&mut ctx).await.unwrap();
+
+        let state = cc1101.get_state().await.unwrap();
+        info!("CC1101 state: {:?}", state);
+
+        Timer::after(Duration::from_millis(1000)).await;
+    }
+
+    // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.0.0/examples/src/bin
 }

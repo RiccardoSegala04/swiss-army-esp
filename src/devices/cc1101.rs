@@ -1,14 +1,20 @@
-use crate::devices::cc1101_driver::{CC1101Driver, Register, State, StatusReg, StrobeCmd};
+use crate::devices::cc1101_driver::{
+    CC1101Driver, Modulation, Register, State, StatusReg, StrobeCmd,
+};
+use defmt::{error, info};
+use embassy_time::Timer;
 use embedded_hal_async::spi::SpiDevice;
 use embedded_time::rate;
 
 pub struct CC1101<SPId> {
-    chip: CC1101Driver<SPId>,
+    pub chip: CC1101Driver<SPId>,
 }
 
+#[derive(Debug)]
 pub enum CC1101Error<SPIe> {
     Spi(SPIe),
     InvalidVersion(u8),
+    InvalidDeviation(rate::Hertz),
 }
 
 impl<E> From<E> for CC1101Error<E> {
@@ -23,8 +29,10 @@ where
 {
     pub async fn new(driver: CC1101Driver<SPId>) -> Result<Self, CC1101Error<SPId::Error>> {
         let mut chip = driver;
+
         let version = chip.read_status(StatusReg::VERSION).await?;
         if version != 20 {
+            error!("Unexpected CC1101 version: {}", version);
             return Err(CC1101Error::InvalidVersion(version));
         }
         chip.write_reg(Register::IOCFG0, 0x06).await?; // GDO0 output pin config: Asserted when sync word is sent/received, and de-asserted at the end of the packet
@@ -82,7 +90,7 @@ where
 
     pub async fn set_whitening(&mut self, active: bool) -> Result<(), CC1101Error<SPId::Error>> {
         self.go_idle().await?;
-        self.chip.set_reg_bit(active, Register::PKTCTRL0).await?;
+        self.chip.set_reg_bit(active, Register::PKTCTRL0, 6).await?;
         Ok(())
     }
 
@@ -105,6 +113,45 @@ where
         Ok(())
     }
 
+    pub async fn set_deviation(
+        &mut self,
+        dev: rate::Hertz,
+    ) -> Result<(), CC1101Error<SPId::Error>> {
+        const XOSC: f64 = 26000000.0;
+
+        const DEV_MIN: f64 = (XOSC as f64 / (1 << 17) as f64) * (8.0 + 0.0) * 1.0;
+        const DEV_MAX: f64 = (XOSC as f64 / (1 << 17) as f64) * (8.0 + 7.0) * (1 << 7) as f64;
+
+        if (dev.0 as f64) < DEV_MIN || (dev.0 as f64) > DEV_MAX {
+            error!(
+                "Invalid deviation: {}. Valid range is {} - {}",
+                dev.0, DEV_MIN, DEV_MAX
+            );
+            return Err(CC1101Error::InvalidDeviation(dev));
+        }
+
+        let mut best_e = 0;
+        let mut best_m = 0;
+        let mut diff = DEV_MAX;
+
+        for e in 0..=7 {
+            for m in 0..=7 {
+                let t = (XOSC as f64 / (1 << 17) as f64) * (8.0 + m as f64) * (1 << e) as f64;
+                if ((dev.0 as f64 - t).abs()) < diff {
+                    diff = (dev.0 as f64 - t).abs();
+                    best_e = e;
+                    best_m = m;
+                }
+            }
+        }
+
+        self.go_idle().await?;
+        let reg_before = self.chip.read_reg(Register::DEVIATN).await?;
+        let reg_new = (reg_before & 0x88) | ((best_m & 0x07) << 2) | ((best_e & 0x07) << 6);
+        self.chip.write_reg(Register::DEVIATN, reg_new).await?;
+        Ok(())
+    }
+
     pub async fn set_sync_word(&mut self, word: u16) -> Result<(), CC1101Error<SPId::Error>> {
         self.go_idle().await?;
         self.chip
@@ -113,6 +160,40 @@ where
         self.chip
             .write_reg(Register::SYNC1, ((word >> 8) & 0xFF) as u8)
             .await?;
+        Ok(())
+    }
+
+    pub async fn set_modulation(
+        &mut self,
+        modulation: Modulation,
+    ) -> Result<(), CC1101Error<SPId::Error>> {
+        self.go_idle().await?;
+        let reg_before = self.chip.read_reg(Register::MDMCFG2).await?;
+        let reg_new = (reg_before & 0x8F) | (modulation as u8);
+        self.chip.write_reg(Register::MDMCFG2, reg_new).await?;
+        Ok(())
+    }
+
+    pub async fn set_manchester_encoding(
+        &mut self,
+        active: bool,
+    ) -> Result<(), CC1101Error<SPId::Error>> {
+        self.go_idle().await?;
+        self.chip.set_reg_bit(active, Register::MDMCFG2, 3).await?;
+        Ok(())
+    }
+
+    pub async fn send_packet(&mut self, packet: &[u8]) -> Result<(), CC1101Error<SPId::Error>> {
+        if packet.len() > 61 {
+            error!("Packet too long: {} bytes. Max is 61", packet.len());
+            return Err(CC1101Error::InvalidVersion(packet.len() as u8));
+        }
+        self.go_idle().await?;
+        self.chip.strobe_cmd(StrobeCmd::SFRX).await?;
+
+        self.chip.write_burst(Register::TXRX_FIFO, packet).await?;
+        self.chip.strobe_cmd(StrobeCmd::STX).await?;
+        while self.get_state().await? != State::Idle {}
         Ok(())
     }
 }
