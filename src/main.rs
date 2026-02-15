@@ -10,10 +10,10 @@
     holding buffers for the duration of a data transfer."
 )]
 
+use crate::alloc::string::ToString;
 use defmt::info;
 use embassy_executor::{Spawner, task};
 use esp_hal::gpio::{DriveMode, Input, InputConfig, Level, Output, OutputConfig, Pull};
-
 
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
@@ -41,6 +41,31 @@ use esp_hal::ledc::{self, LSGlobalClkSource, Ledc, LowSpeed};
 use esp_hal::i2c::master::I2c;
 use esp_hal::{i2c::master::Config as I2cConfig, time::Rate};
 use ssd1306::{I2CDisplayInterface, Ssd1306, prelude::*};
+
+use core::{net::Ipv4Addr, str::FromStr};
+
+use embassy_time::{Duration, Timer};
+
+use embassy_net::{
+    Ipv4Cidr,
+    Runner,
+    Stack,
+    StackResources,
+    StaticConfigV4,
+};
+
+use esp_hal::rng::Rng;
+use esp_radio::wifi::{WifiDevice, ModeConfig, AccessPointConfig};
+
+
+macro_rules! mk_static {
+    ($t:ty,$val:expr) => {{
+        static STATIC_CELL: static_cell::StaticCell<$t> = static_cell::StaticCell::new();
+        #[deny(unused_attributes)]
+        let x = STATIC_CELL.uninit().write(($val));
+        x
+    }};
+}
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -95,6 +120,51 @@ pub async fn infrared_task(led: Output<'static>, mut ledc: Ledc<'static>, rx: In
     }
 }
 
+#[embassy_executor::task]
+async fn run_dhcp(stack: Stack<'static>, gw_ip_addr: &'static str) {
+    use core::net::{Ipv4Addr, SocketAddrV4};
+
+    use edge_dhcp::{
+        io::{self, DEFAULT_SERVER_PORT},
+        server::{Server, ServerOptions},
+    };
+    use edge_nal::UdpBind;
+    use edge_nal_embassy::{Udp, UdpBuffers};
+
+    let ip = Ipv4Addr::from_str(gw_ip_addr).expect("dhcp task failed to parse gw ip");
+
+    let mut buf = [0u8; 1500];
+
+    let mut gw_buf = [Ipv4Addr::UNSPECIFIED];
+
+    let buffers = UdpBuffers::<3, 1024, 1024, 10>::new();
+    let unbound_socket = Udp::new(stack, &buffers);
+    let mut bound_socket = unbound_socket
+        .bind(core::net::SocketAddr::V4(SocketAddrV4::new(
+            Ipv4Addr::UNSPECIFIED,
+            DEFAULT_SERVER_PORT,
+        )))
+        .await
+        .unwrap();
+
+    loop {
+        _ = io::server::run(
+            &mut Server::<_, 64>::new_with_et(ip),
+            &ServerOptions::new(ip, Some(&mut gw_buf)),
+            &mut bound_socket,
+            &mut buf,
+        )
+        .await
+        .inspect_err(|e| info!("DHCP server error"));
+        Timer::after(Duration::from_millis(500)).await;
+    }
+}
+
+#[task]
+async fn net_task(mut runner: Runner<'static, WifiDevice<'static>>) {
+    runner.run().await
+}
+
 #[esp_rtos::main]
 async fn main(spawner: Spawner) -> ! {
     // generator version: 1.0.1
@@ -108,6 +178,61 @@ async fn main(spawner: Spawner) -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0);
 
+    // Wifi configuration
+    let radio_init = mk_static!(
+        esp_radio::Controller,
+        esp_radio::init().expect("Failed to initialize Wi-Fi/BLE controller")
+    );
+    // let radio_init = esp_radio::init().expect("Failed to initialize Wi-Fi/BLE controller");
+    let (mut controller, interfaces) =
+        esp_radio::wifi::new(radio_init, peripherals.WIFI, Default::default())
+            .expect("Failed to initialize Wi-Fi controller");
+
+    let device = interfaces.ap;
+
+    let gw_ip_addr_str = "192.168.2.1";
+    let gw_ip_addr = Ipv4Addr::from_str(gw_ip_addr_str).unwrap();
+
+    let config = embassy_net::Config::ipv4_static(StaticConfigV4 {
+        address: Ipv4Cidr::new(gw_ip_addr, 24),
+        gateway: Some(gw_ip_addr),
+        dns_servers: Default::default(),
+    });
+
+    let rng = Rng::new();
+    let seed = (rng.random() as u64) << 32 | rng.random() as u64;
+
+    let (stack, runner) = embassy_net::new(
+        device,
+        config,
+        mk_static!(StackResources<3>, StackResources::<3>::new()),
+        seed,
+    );
+
+    let ap_config =
+        ModeConfig::AccessPoint(AccessPointConfig::default().with_ssid("esp-radio".to_string()));
+
+    controller.set_config(&ap_config).unwrap();
+    controller.start_async().await.unwrap();
+
+    spawner.spawn(net_task(runner)).ok();
+    spawner.spawn(run_dhcp(stack, gw_ip_addr_str)).ok();
+
+    // Display Instantiation
+    let i2c_config = I2cConfig::default().with_frequency(Rate::from_khz(400));
+    let i2c = I2c::new(peripherals.I2C0, i2c_config)
+        .unwrap()
+        .with_scl(peripherals.GPIO15)
+        .with_sda(peripherals.GPIO16)
+        .into_async();
+    let interface = I2CDisplayInterface::new(i2c);
+    let mut target = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
+        .into_buffered_graphics_mode();
+    target.init().unwrap();
+
+    let mut display = DisplaySsd1306::new(target);
+
+    // Controller Instantiation
     let mut controller = Controller::new(
         Input::new(
             peripherals.GPIO4,
@@ -127,46 +252,32 @@ async fn main(spawner: Spawner) -> ! {
         ),
     );
 
-    let i2c_config = I2cConfig::default().with_frequency(Rate::from_khz(400));
-    let i2c = I2c::new(peripherals.I2C0, i2c_config)
-        .unwrap()
-        .with_scl(peripherals.GPIO15)
-        .with_sda(peripherals.GPIO16)
-        .into_async();
-    let interface = I2CDisplayInterface::new(i2c);
-    let mut target = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
-        .into_buffered_graphics_mode();
-    target.init().unwrap();
-
-    let mut display = DisplaySsd1306::new(target);
-
-    let led = Output::new(peripherals.GPIO8, Level::High, OutputConfig::default());
-    let ir_rx = Input::new(peripherals.GPIO3, InputConfig::default());
-
-    let mut ledc = Ledc::new(peripherals.LEDC);
-
     let controller_service = ControllerService::new(EVENT_CHANNEL.dyn_sender(), controller);
 
+    // Infrared Instantiation
+    let led = Output::new(peripherals.GPIO8, Level::High, OutputConfig::default());
+    let ir_rx = Input::new(peripherals.GPIO3, InputConfig::default());
+    let mut ledc = Ledc::new(peripherals.LEDC);
+
+
+    // Router Service
     let router_service = RouterService::new(
         ControllerService::<Input>::command_sender(),
         InfraredService::<ledc::channel::Channel<'static, LowSpeed>, Input>::command_sender(),
     );
 
+    // Context Instantiation
     let receiver = EVENT_CHANNEL.dyn_receiver();
     let mut ctx = ViewContext::new(&mut display, receiver, RouterService::command_sender());
 
+    // Starting Tasks
     info!("Starting Router Task");
     spawner.spawn(router_task(router_service)).unwrap();
-
     info!("Starting Controller Task");
     spawner.spawn(controller_task(controller_service)).unwrap();
     info!("Starting Infrared Task");
     spawner.spawn(infrared_task(led, ledc, ir_rx)).unwrap();
 
-    // let radio_init = esp_radio::init().expect("Failed to initialize Wi-Fi/BLE controller");
-    // let (mut _wifi_controller, _interfaces) =
-    //     esp_radio::wifi::new(&radio_init, peripherals.WIFI, Default::default())
-    //         .expect("Failed to initialize Wi-Fi controller");
 
     let style = Style::normal();
 
