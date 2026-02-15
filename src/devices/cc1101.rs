@@ -4,7 +4,7 @@ use crate::devices::cc1101_driver::{
 use defmt::{error, info};
 use embassy_time::Timer;
 use embedded_hal_async::spi::SpiDevice;
-use embedded_time::rate;
+use embedded_time::rate::{self, Baud};
 
 pub struct CC1101<SPId> {
     pub chip: CC1101Driver<SPId>,
@@ -15,6 +15,7 @@ pub enum CC1101Error<SPIe> {
     Spi(SPIe),
     InvalidVersion(u8),
     InvalidDeviation(rate::Hertz),
+    InvalidBitrate(rate::Baud, Modulation),
 }
 
 impl<E> From<E> for CC1101Error<E> {
@@ -35,8 +36,7 @@ where
             error!("Unexpected CC1101 version: {}", version);
             return Err(CC1101Error::InvalidVersion(version));
         }
-        chip.write_reg(Register::IOCFG0, 0x06).await?; // GDO0 output pin config: Asserted when sync word is sent/received, and de-asserted at the end of the packet
-        //
+        /*chip.write_reg(Register::IOCFG0, 0x06).await?; // GDO0 output pin config: Asserted when sync word is sent/received, and de-asserted at the end of the packet
         chip.write_reg(Register::FIFOTHR, 0x4F).await?; // The "F" 0b1111 ensures that GDO0 assrets only if a full packet is received
         chip.write_reg(Register::MDMCFG3, 0x83).await?;
         chip.write_reg(Register::MCSM0, 0x18).await?;
@@ -49,17 +49,20 @@ where
         chip.write_reg(Register::FSCAL0, 0x1F).await?;
         chip.write_reg(Register::TEST2, 0x81).await?;
         chip.write_reg(Register::TEST1, 0x35).await?;
-        chip.write_reg(Register::TEST0, 0x09).await?;
+        chip.write_reg(Register::TEST0, 0x09).await?;*/
 
         // max pkt size = 61. Dealing with larger packets is hard
         // and given the higher possibility of crc errors
         // probably not worth the effort. Generally the packets should be as
         // short as possible
-        chip.write_reg(Register::PKTLEN, 61).await?; // 0x3D
-        chip.write_reg(Register::MCSM1, 0x30).await?; // CCA enabled TX->IDLE RX->IDLE
+        //chip.write_reg(Register::PKTLEN, 61).await?; // 0x3D
+        //chip.write_reg(Register::MCSM1, 0x30).await?; // CCA enabled TX->IDLE RX->IDLE
         //
-
-        Ok(Self { chip: chip })
+        chip.write_reg_field(Register::MCSM0, 1, 5, 4).await?;
+        chip.write_reg_field(Register::PKTCTRL1, 1, 2, 2).await?;
+        let mut device = Self { chip: chip };
+        device.set_whitening(false).await?;
+        Ok(device)
     }
 
     pub async fn get_state(&mut self) -> Result<State, CC1101Error<SPId::Error>> {
@@ -98,7 +101,7 @@ where
         &mut self,
         freq: rate::Hertz,
     ) -> Result<(), CC1101Error<SPId::Error>> {
-        let reg_new = (((freq.0 as u64) << 16) / 26000000) as u32;
+        let reg_new = (((freq.0 as u64) << 16) / (self.chip.xosc_freq.0 as u64)) as u32;
         self.go_idle().await?;
         self.chip.write_reg(Register::CHANNR, 0).await?;
         self.chip
@@ -117,26 +120,27 @@ where
         &mut self,
         dev: rate::Hertz,
     ) -> Result<(), CC1101Error<SPId::Error>> {
-        const XOSC: f64 = 26000000.0;
+        let dev_min: f64 = (self.chip.xosc_freq.0 as f64 / (1 << 17) as f64) * (8.0 + 0.0) * 1.0;
+        let dev_min: f64 =
+            (self.chip.xosc_freq.0 as f64 / (1 << 17) as f64) * (8.0 + 7.0) * (1 << 7) as f64;
 
-        const DEV_MIN: f64 = (XOSC as f64 / (1 << 17) as f64) * (8.0 + 0.0) * 1.0;
-        const DEV_MAX: f64 = (XOSC as f64 / (1 << 17) as f64) * (8.0 + 7.0) * (1 << 7) as f64;
-
-        if (dev.0 as f64) < DEV_MIN || (dev.0 as f64) > DEV_MAX {
+        if (dev.0 as f64) < dev_min || (dev.0 as f64) > dev_min {
             error!(
                 "Invalid deviation: {}. Valid range is {} - {}",
-                dev.0, DEV_MIN, DEV_MAX
+                dev.0, dev_min, dev_min
             );
             return Err(CC1101Error::InvalidDeviation(dev));
         }
 
         let mut best_e = 0;
         let mut best_m = 0;
-        let mut diff = DEV_MAX;
+        let mut diff = dev_min;
 
         for e in 0..=7 {
             for m in 0..=7 {
-                let t = (XOSC as f64 / (1 << 17) as f64) * (8.0 + m as f64) * (1 << e) as f64;
+                let t = (self.chip.xosc_freq.0 as f64 / (1 << 17) as f64)
+                    * (8.0 + m as f64)
+                    * (1 << e) as f64;
                 if ((dev.0 as f64 - t).abs()) < diff {
                     diff = (dev.0 as f64 - t).abs();
                     best_e = e;
@@ -196,4 +200,6 @@ where
         while self.get_state().await? != State::Idle {}
         Ok(())
     }
+
+    //pub async fn set_baudrate(self, baudrate: Baud)
 }

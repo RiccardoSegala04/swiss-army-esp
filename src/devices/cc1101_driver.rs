@@ -3,18 +3,21 @@ use embedded_hal_async::spi::{
     Operation::{Read, Transfer, Write},
     SpiDevice,
 };
+use embedded_time::rate::Hertz;
 
 pub struct CC1101Driver<SPId> {
     cc1101_spi: SPId,
+    pub xosc_freq: Hertz,
 }
 
 impl<SPId> CC1101Driver<SPId>
 where
     SPId: SpiDevice,
 {
-    pub async fn new(spi_dev: SPId) -> Self {
+    pub async fn new(spi_dev: SPId, xosc_freq: Hertz) -> Self {
         Self {
             cc1101_spi: spi_dev,
+            xosc_freq: xosc_freq,
         }
     }
 
@@ -101,6 +104,20 @@ where
             reg_before & !(1 << bit)
         };
         self.write_reg(reg, reg_new).await
+    }
+
+    pub async fn write_reg_field(
+        &mut self,
+        reg: Register,
+        data: u8,
+        hi: u8,
+        lo: u8,
+    ) -> Result<(), <SPId>::Error> {
+        let data = data << lo;
+        let current = self.read_reg(reg).await?;
+        let mask = ((1 << (hi - lo + 1)) - 1) << lo;
+        let data = (current & !mask) | (data & mask);
+        self.write_reg(reg, data).await
     }
 }
 
@@ -257,12 +274,46 @@ pub struct StatusByte {
 }
 
 #[repr(u8)]
+#[derive(Debug)]
 pub enum Modulation {
-    Mod_2Fsk = 0b000,
-    Mod_Gfsk = 0b001,
-    Mod_Ook = 0b011,
-    Mod_4Fsk = 0b100,
-    Mod_MsK = 0b111,
+    Mod2Fsk = 0b000,
+    ModGfsk = 0b001,
+    ModOok = 0b011,
+    Mod4Fsk = 0b100,
+    ModMsk = 0b111,
+}
+
+#[derive(Copy, Clone)]
+pub struct BaudRange {
+    pub min: f32,
+    pub max: f32,
+}
+
+impl Modulation {
+    pub const fn range(self) -> BaudRange {
+        match self {
+            Self::Mod2Fsk => BaudRange {
+                min: 0.6,
+                max: 500.0,
+            },
+            Self::ModGfsk => BaudRange {
+                min: 0.6,
+                max: 250.0,
+            },
+            Self::ModOok => BaudRange {
+                min: 0.6,
+                max: 250.0,
+            },
+            Self::Mod4Fsk => BaudRange {
+                min: 0.6,
+                max: 300.0,
+            },
+            Self::ModMsk => BaudRange {
+                min: 26.0,
+                max: 500.0,
+            },
+        }
+    }
 }
 
 #[repr(u8)]

@@ -274,7 +274,7 @@ async fn main(spawner: Spawner) -> ! {
     let spi_cc1101 = ExclusiveDevice::new(_spi, cc1101_csn, Delay).unwrap();
 
     use devices::cc1101_driver::CC1101Driver;
-    let cc1101_driver = CC1101Driver::new(spi_cc1101).await;
+    let cc1101_driver = CC1101Driver::new(spi_cc1101, Hertz::new(26000000)).await;
     let mut cc1101 = CC1101::new(cc1101_driver).await.unwrap();
 
     info!("cc1101 initialized");
@@ -333,7 +333,7 @@ async fn main(spawner: Spawner) -> ! {
         */
     cc1101.set_frequency(Hertz::new(433000000)).await.unwrap();
     cc1101
-        .set_modulation(devices::cc1101_driver::Modulation::Mod_Ook)
+        .set_modulation(devices::cc1101_driver::Modulation::ModOok)
         .await
         .unwrap();
     cc1101
