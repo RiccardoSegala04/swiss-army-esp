@@ -66,7 +66,7 @@ bitfield-struct = "0.12.1"
 edge-dhcp = "0.7.0"
 edge-nal = "0.6.0"
 edge-nal-embassy = "0.8.1"
-
+embedded-cli = "0.2.1"
 
 [profile.dev]
 # Rust debug is too slow.
@@ -81,3 +81,4 @@ incremental      = false
 lto              = 'fat'
 opt-level        = 's'
 overflow-checks  = false
+

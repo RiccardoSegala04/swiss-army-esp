@@ -76,9 +76,11 @@ where
         &mut self,
         context: &mut ViewContext<'_, D>,
     ) -> Result<ViewAction, <D::Target as DrawTarget>::Error> {
-        self.draw(context.display)?;
+
 
         loop {
+            self.draw(context.display)?;
+
             let ev = context.receiver.receive().await;
 
             match ev {

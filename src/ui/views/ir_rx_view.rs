@@ -31,11 +31,12 @@ pub struct IrRxView<'a> {
 }
 
 impl<'a> IrRxView<'a> {
-    pub fn new(style: &'a Style) -> Self {
+    pub async fn new(style: &'a Style) -> Self {
+        let last_sig = crate::devices::ir::SIGNAL_HISTORY.get().lock().await.last().cloned();
         Self {
-            last_signal: Some(IrSignal::new()),
+            last_signal: last_sig.clone(),
             topbar: TopBar::new(style, "IR_RX"),
-            signal_viewer: IrSignalViewer::selected_new(style, None, Point::new(63, 31), Size::new(118, 23)),
+            signal_viewer: IrSignalViewer::selected_new(style, last_sig.clone(), Point::new(63, 31), Size::new(118, 23)),
             elements: [
                 Button::selected_new(style, "RECORD", Point::new(33, 53), Size::new(57, 13)).into(),
                 Button::new(style, "REPLAY", Point::new(94, 53), Size::new(57, 13)).into(),
@@ -86,8 +87,6 @@ impl<'a> IrRxView<'a> {
                 self.topbar.stop_record();
 
                 self.signal_viewer.set_signal(sig.clone());
-
-                crate::devices::ir::SIGNAL_HISTORY.get().lock().await.push(sig.clone());
 
                 self.last_signal = Some(sig);
 

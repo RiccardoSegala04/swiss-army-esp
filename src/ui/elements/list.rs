@@ -77,25 +77,28 @@ impl<'a> Drawable for List<'a> {
     where
         D: DrawTarget<Color = Self::Color>,
     {
+        
+        if !self.elements.is_empty() {
 
-        let mut y = 25;
+            let mut y = 25;
+            let len = self.elements.len();
 
-        let len = self.elements.len();
-        let start = if self.sel_idx <= 1 || self.elements.len() <= 4 {
-            0
-        } else if self.sel_idx < self.elements.len()-2 {
-            self.sel_idx - 1
-        } else {
-            self.elements.len() - 4
-        };
+            let start = if self.sel_idx <= 1 || self.elements.len() <= 4 {
+                0
+            } else if self.sel_idx < self.elements.len()-2 {
+                self.sel_idx - 1
+            } else {
+                self.elements.len() - 4
+            };
+     
+            let elements = &self.elements[start..start+self.elements.len().min(4)];
 
-        let elements = &self.elements[start..start+4];
+            for (idx, element) in elements.iter().enumerate() {
 
-        for (idx, element) in elements.iter().enumerate() {
+                draw_item_text(target, &element, idx == self.sel_idx-start, y, self.style)?;
 
-            draw_item_text(target, &element, idx == self.sel_idx-start, y, self.style)?;
-
-            y += 12;
+                y += 12;
+            }
         }
 
         Ok(())

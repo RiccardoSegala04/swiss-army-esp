@@ -9,6 +9,14 @@ use crate::ui::views::view::ViewType;
 use crate::ui::views::view::ViewAction;
 use crate::ViewContext;
 
+use embassy_sync::channel::{self, DynamicReceiver, DynamicSender};
+use embassy_sync::channel::Channel;
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+
+use crate::services::router::{RouterService, RouterEvent};
+
+static EVENT_CHANNEL: Channel<CriticalSectionRawMutex, RouterEvent, 8> = Channel::new();
+
 pub struct App<'a, D>
 where
     D: Display
@@ -22,13 +30,14 @@ impl<'a, D> App<'a, D>
 where
     D: Display
 {
-    pub fn new(style: &'a Style, context: ViewContext<'a, D>) -> Self {
-        Self { context, style, view_stack: Vec::new() }
+    pub fn new(style: &'a Style, display: &'a mut D) -> Self {
+        Self { context: ViewContext::new(display, EVENT_CHANNEL.dyn_receiver(), RouterService::command_sender()), style, view_stack: Vec::new() }
     }
 
     pub async fn start(&mut self, mut entry: ViewType) -> Result<(), <D::Target as DrawTarget>::Error> {
         
         loop {
+           
             match entry.start(self.style, &mut self.context).await? {
               
                 ViewAction::SwitchTo(v) => {
@@ -49,4 +58,9 @@ where
         
         Ok(())
     }
+
+}
+
+pub fn event_sender() -> DynamicSender<'static, RouterEvent> {
+    EVENT_CHANNEL.dyn_sender()
 }

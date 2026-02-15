@@ -26,12 +26,13 @@ use devices::ir::Infrared;
 
 mod ui;
 use ui::Style;
-use ui::App;
+use ui::{app, App};
 use ui::views::view::{ViewType, ViewContext, Viewable};
 
 mod services;
 use services::controller::ControllerService;
 use services::infrared::InfraredService;
+use services::cli::CliService;
 use services::router::{RouterEvent, RouterService};
 
 use esp_hal::ledc::channel::{self, ChannelIFace};
@@ -47,11 +48,13 @@ use core::{net::Ipv4Addr, str::FromStr};
 use embassy_time::{Duration, Timer};
 
 use embassy_net::{
+    IpListenEndpoint,
     Ipv4Cidr,
     Runner,
     Stack,
     StackResources,
     StaticConfigV4,
+    tcp::TcpSocket,
 };
 
 use esp_hal::rng::Rng;
@@ -78,7 +81,6 @@ extern crate alloc;
 // For more information see: <https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/app_image_format.html#application-description>
 esp_bootloader_esp_idf::esp_app_desc!();
 
-static EVENT_CHANNEL: Channel<CriticalSectionRawMutex, RouterEvent, 8> = Channel::new();
 
 #[task]
 pub async fn router_task(mut service: RouterService<'static>) {
@@ -89,6 +91,13 @@ pub async fn router_task(mut service: RouterService<'static>) {
 
 #[task]
 pub async fn controller_task(mut service: ControllerService<Input<'static>>) {
+    loop {
+        service.run().await;
+    }
+}
+
+#[task]
+pub async fn cli_task(mut service: CliService<'static>) {
     loop {
         service.run().await;
     }
@@ -114,7 +123,8 @@ pub async fn infrared_task(led: Output<'static>, mut ledc: Ledc<'static>, rx: In
 
     let ir = Infrared::new(channel0, rx);
 
-    let mut service = InfraredService::new(EVENT_CHANNEL.dyn_sender(), ir);
+    let mut service = InfraredService::new(RouterService::event_sender(), ir);
+
     loop {
         service.run().await;
     }
@@ -218,6 +228,12 @@ async fn main(spawner: Spawner) -> ! {
     spawner.spawn(net_task(runner)).ok();
     spawner.spawn(run_dhcp(stack, gw_ip_addr_str)).ok();
 
+    stack.wait_config_up().await;
+
+    stack
+        .config_v4().unwrap();
+
+
     // Display Instantiation
     let i2c_config = I2cConfig::default().with_frequency(Rate::from_khz(400));
     let i2c = I2c::new(peripherals.I2C0, i2c_config)
@@ -252,23 +268,23 @@ async fn main(spawner: Spawner) -> ! {
         ),
     );
 
-    let controller_service = ControllerService::new(EVENT_CHANNEL.dyn_sender(), controller);
+    let controller_service = ControllerService::new(RouterService::event_sender(), controller);
 
     // Infrared Instantiation
     let led = Output::new(peripherals.GPIO8, Level::High, OutputConfig::default());
     let ir_rx = Input::new(peripherals.GPIO3, InputConfig::default());
     let mut ledc = Ledc::new(peripherals.LEDC);
 
+    // Cli Service
+    let cli_service = CliService::new(RouterService::command_sender(), stack);
 
     // Router Service
     let router_service = RouterService::new(
+        app::event_sender(),
+        CliService::event_sender(),
         ControllerService::<Input>::command_sender(),
         InfraredService::<ledc::channel::Channel<'static, LowSpeed>, Input>::command_sender(),
     );
-
-    // Context Instantiation
-    let receiver = EVENT_CHANNEL.dyn_receiver();
-    let mut ctx = ViewContext::new(&mut display, receiver, RouterService::command_sender());
 
     // Starting Tasks
     info!("Starting Router Task");
@@ -277,13 +293,18 @@ async fn main(spawner: Spawner) -> ! {
     spawner.spawn(controller_task(controller_service)).unwrap();
     info!("Starting Infrared Task");
     spawner.spawn(infrared_task(led, ledc, ir_rx)).unwrap();
-
+    info!("Starting Cli Task");
+    spawner.spawn(cli_task(cli_service)).unwrap();
 
     let style = Style::normal();
 
-    let mut app = App::new(&style, ctx);
+    let mut app = App::new(&style, &mut display);
 
     app.start(ViewType::MainMenuView).await;
     
-    loop {}
+    loop {
+
+        Timer::after(Duration::from_millis(2000)).await;
+        
+    }
 }

@@ -43,7 +43,7 @@ impl ViewType {
     ) -> Result<ViewAction, <D::Target as DrawTarget>::Error> {
         match self {
             ViewType::MainMenuView => MainMenuView::new(style).run(context).await,
-            ViewType::IrRxView => IrRxView::new(style).run(context).await,
+            ViewType::IrRxView => IrRxView::new(style).await.run(context).await,
             ViewType::IrSavedView => IrSavedView::new(style).await.run(context).await,
             ViewType::DummyView(t) => DummyView::new(t).run(context).await
         }

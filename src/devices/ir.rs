@@ -16,6 +16,7 @@ use embassy_sync::lazy_lock::LazyLock;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 
+
 pub static SIGNAL_HISTORY: LazyLock<Mutex<CriticalSectionRawMutex, Vec<IrSignal, 5>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
 
@@ -24,6 +25,7 @@ pub enum InfraredCommand {
     Play(IrSignal),
 }
 
+#[derive(Clone)]
 pub enum InfraredEvent {
     Signal(IrSignal),
     SignalTooLong,
@@ -145,6 +147,8 @@ where
         }
 
         info!("Signal length: {}", signal.timings.len());
+        
+        SIGNAL_HISTORY.get().lock().await.push(signal.clone());
 
         InfraredEvent::Signal(signal)
     }
