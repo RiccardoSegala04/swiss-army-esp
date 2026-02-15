@@ -8,6 +8,7 @@ use super::dummy_view::DummyView;
 use super::ir_rx_view::IrRxView;
 use super::ir_saved_view::IrSavedView;
 use super::main_menu_view::MainMenuView;
+use crate::ui::views::snake_view::SnakeView;
 
 use crate::services::router::{RouterCommand, RouterEvent};
 
@@ -23,6 +24,7 @@ pub enum ViewType {
     MainMenuView,
     IrRxView,
     IrSavedView,
+    SnakeView,
     DummyView(&'static str),
 }
 
@@ -32,6 +34,7 @@ impl ViewType {
             ViewType::MainMenuView => "PIPU ZERO",
             ViewType::IrRxView => "IR RX",
             ViewType::IrSavedView => "IR SAVED",
+            ViewType::SnakeView => "SNAKE",
             ViewType::DummyView(t) => t,
         }
     }
@@ -45,6 +48,7 @@ impl ViewType {
             ViewType::MainMenuView => MainMenuView::new(style).run(context).await,
             ViewType::IrRxView => IrRxView::new(style).await.run(context).await,
             ViewType::IrSavedView => IrSavedView::new(style).await.run(context).await,
+            ViewType::SnakeView => SnakeView::new(style).run(context).await,
             ViewType::DummyView(t) => DummyView::new(t).run(context).await,
         }
     }

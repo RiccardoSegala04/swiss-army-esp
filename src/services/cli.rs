@@ -215,9 +215,7 @@ impl<'a> CliService<'a> {
                 let input = socket.read(&mut buffer);
 
                 match select(ev, input).await {
-                    Either::First(_) => {
-                        info!("event")
-                    }
+                    Either::First(_) => {}
                     Either::Second(input) => {
                         match input {
                             Ok(len) => {
