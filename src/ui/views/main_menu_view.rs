@@ -33,10 +33,10 @@ impl<'a> MainMenuView<'a> {
         let elem = Vec::from_array([
             ViewType::IrRxView,
             ViewType::IrSavedView,
+            ViewType::SnakeView,
             ViewType::DummyView("View 1"),
             ViewType::DummyView("View 2"),
             ViewType::DummyView("View 3"),
-            ViewType::DummyView("View 4"),
         ]);
 
         let elem_str: Vec<&str, 10> = elem.iter().map(|v| v.title()).collect();

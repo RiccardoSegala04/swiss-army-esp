@@ -69,7 +69,6 @@ impl<'a> RouterService<'a> {
     }
 
     pub async fn route_event(&mut self, event: RouterEvent) {
-        info!("Route Event");
         if !crate::services::cli::EVENT_CHANNEL.is_full() {
             self.cli_channel.send(event.clone()).await;
         }
