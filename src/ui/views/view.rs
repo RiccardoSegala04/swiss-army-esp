@@ -24,6 +24,7 @@ pub enum ViewType {
     MainMenuView,
     IrRxView,
     IrSavedView,
+    RadioRxView,
     SnakeView,
     DummyView(&'static str),
 }
@@ -33,6 +34,7 @@ impl ViewType {
         match self {
             ViewType::MainMenuView => "PIPU ZERO",
             ViewType::IrRxView => "IR RX",
+            ViewType::RadioRxView => "RADIO RX",
             ViewType::IrSavedView => "IR SAVED",
             ViewType::SnakeView => "SNAKE",
             ViewType::DummyView(t) => t,
@@ -47,6 +49,7 @@ impl ViewType {
         match self {
             ViewType::MainMenuView => MainMenuView::new(style).run(context).await,
             ViewType::IrRxView => IrRxView::new(style).await.run(context).await,
+            ViewType::RadioRxView => RadioRxView::new(style).await.run(context).await,
             ViewType::IrSavedView => IrSavedView::new(style).await.run(context).await,
             ViewType::SnakeView => SnakeView::new(style).run(context).await,
             ViewType::DummyView(t) => DummyView::new(t).run(context).await,

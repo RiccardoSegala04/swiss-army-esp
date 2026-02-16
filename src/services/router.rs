@@ -9,12 +9,14 @@ use crate::devices::ir;
 pub enum RouterCommand {
     ControllerCommand(controller::ControllerCommand),
     InfraredCommand(ir::InfraredCommand),
+    RadioCommand(radio::RadioCommand),
 }
 
 #[derive(Clone)]
 pub enum RouterEvent {
     ControllerEvent(controller::ControllerEvent),
     InfraredEvent(ir::InfraredEvent),
+    RadioEvent(radio::RadioEvent),
 }
 
 pub static COMMANDS_CHANNEL: Channel<CriticalSectionRawMutex, RouterCommand, 1> = Channel::new();
@@ -30,6 +32,7 @@ pub struct RouterService<'a> {
 
     controller_channel: DynamicSender<'a, controller::ControllerCommand>,
     infrared_channel: DynamicSender<'a, ir::InfraredCommand>,
+    radio_channel: DynamicSender<'a, ir::RadioCommand>,
 }
 
 impl<'a> RouterService<'a> {
@@ -38,6 +41,7 @@ impl<'a> RouterService<'a> {
         cli_channel: DynamicSender<'static, RouterEvent>,
         controller_channel: DynamicSender<'static, controller::ControllerCommand>,
         infrared_channel: DynamicSender<'static, ir::InfraredCommand>,
+        radio_channel: DynamicSender<'static, ir::RadioCommand>,
     ) -> Self {
         Self {
             command_channel: COMMANDS_CHANNEL.dyn_receiver(),
@@ -46,6 +50,7 @@ impl<'a> RouterService<'a> {
             cli_channel,
             controller_channel,
             infrared_channel,
+            radio_channel,
         }
     }
 
@@ -64,6 +69,9 @@ impl<'a> RouterService<'a> {
             }
             RouterCommand::InfraredCommand(c) => {
                 self.infrared_channel.send(c).await;
+            }
+            RouterCommand::RadioCommand(c) => {
+                self.radio_channel.send(c).await;
             }
         }
     }

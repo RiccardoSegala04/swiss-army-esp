@@ -1,0 +1,162 @@
+use embedded_graphics::{draw_target::DrawTarget, prelude::*};
+
+use super::view::{ViewAction, ViewContext, Viewable};
+
+use crate::ui::Style;
+use crate::ui::elements::Button;
+use crate::ui::elements::ElementType;
+use crate::ui::elements::signal_viewer::{SignalViewer, Signal};
+use crate::ui::elements::TopBar;
+
+use crate::devices::controller::ControllerEvent;
+use crate::devices::display::Display;
+use crate::devices::cc1101::{RadioEvent, RadioCommand, RadioSignal};
+
+use crate::services::router::{RouterCommand, RouterEvent};
+
+static SAMPLE_TIMINGS: &[u16] = &[
+    9000, 4500, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560,
+    560, 1690, 560, 1690, 560, 1690, 560, 560, 1690,
+];
+
+impl Signal for RadioSignal {
+    fn timings(&self) -> &[u16] {
+        self.timings.as_slice()
+    }
+}
+
+pub struct RadioRxView<'a> {
+    topbar: TopBar<'a>,
+    last_signal: Option<RadioSignal>,
+
+    signal_viewer: SignalViewer<'a, RadioSignal>,
+    elements: [ElementType<'a>; 2],
+    sel_idx: usize,
+
+    style: &'a Style,
+}
+
+impl<'a> RadioRxView<'a> {
+    pub async fn new(style: &'a Style) -> Self {
+        let last_sig = crate::devices::ir::SIGNAL_HISTORY
+            .get()
+            .lock()
+            .await
+            .last()
+            .cloned();
+
+        Self {
+            last_signal: last_sig.clone(),
+            topbar: TopBar::new(style, "IR_RX"),
+            signal_viewer: SignalViewer::new(
+                style,
+                last_sig,
+                Point::new(63, 31),
+                Size::new(118, 23),
+            ),
+            elements: [
+                Button::selected_new(style, "RECORD", Point::new(33, 53), Size::new(57, 13)).into(),
+                Button::new(style, "REPLAY", Point::new(94, 53), Size::new(57, 13)).into(),
+            ],
+            sel_idx: 0,
+            style,
+        }
+    }
+
+    fn select_next(&mut self) {
+        self.elements[self.sel_idx].deselect();
+        self.sel_idx = (self.sel_idx + 1) % self.elements.len();
+        self.elements[self.sel_idx].select();
+    }
+
+    fn select_prev(&mut self) {
+        self.elements[self.sel_idx].deselect();
+        self.sel_idx = (self.sel_idx + self.elements.len() - 1) % self.elements.len();
+        self.elements[self.sel_idx].select();
+    }
+
+    async fn confirm_pressed<D: Display>(&mut self, context: &mut ViewContext<'_, D>) {
+        match self.sel_idx {
+            0 => {
+                self.topbar.start_record();
+                context
+                    .sender
+                    .send(RouterCommand::RadioCommand(RadioCommand::Listen))
+                    .await;
+            }
+            1 => {
+                if let Some(signal) = &self.last_signal {
+                    self.topbar.start_record();
+                    context
+                        .sender
+                        .send(RouterCommand::RadioCommand(RadioCommand::Play(
+                            signal.clone(),
+                        )))
+                        .await;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    async fn handle_radio_event(&mut self, ev: RadioEvent) {
+        match ev {
+            RadioEvent::Signal(sig) => {
+                self.topbar.stop_record();
+
+                self.last_signal = Some(sig);
+                self.signal_viewer
+                    .set_signal(self.last_signal.clone());
+            }
+            RadioEvent::NoSignal | RadioEvent::SignalTooLong => self.topbar.stop_record(),
+            RadioEvent::SignalPlayed => self.topbar.stop_record(),
+        }
+    }
+
+    fn draw<D>(&self, display: &mut D) -> Result<(), <D::Target as DrawTarget>::Error>
+    where
+        D: Display,
+    {
+        display.clear(self.style.color_bg)?;
+
+        display.draw(&self.topbar)?;
+
+        display.draw(&self.signal_viewer)?;
+
+        for e in &self.elements {
+            display.draw(e)?;
+        }
+
+        display.flush();
+
+        Ok(())
+    }
+}
+
+impl<'a, D> Viewable<D> for RadioRxView<'a>
+where
+    D: Display,
+{
+    async fn run(
+        &mut self,
+        context: &mut ViewContext<'_, D>,
+    ) -> Result<ViewAction, <D::Target as DrawTarget>::Error> {
+        loop {
+            self.draw(context.display)?;
+
+            let ev = context.receiver.receive().await;
+
+            match ev {
+                RouterEvent::ControllerEvent(ev) => match ev {
+                    ControllerEvent::NavNextPressed => self.select_next(),
+                    ControllerEvent::NavPrevPressed => self.select_prev(),
+                    ControllerEvent::ConfirmPressed => self.confirm_pressed(context).await,
+                    ControllerEvent::BackPressed => return Ok(ViewAction::Exit),
+                    _ => {}
+                },
+                RouterEvent::RadioEvent(ev) => self.handle_radio_event(ev).await,
+                _ => {}
+            };
+        }
+    }
+}
