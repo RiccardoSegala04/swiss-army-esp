@@ -45,9 +45,7 @@ impl IrSignal {
     }
 
     pub fn with_timings(timings: Vec<u16, 256>) -> Self {
-        Self {
-            timings: timings,
-        }
+        Self { timings: timings }
     }
 
     fn push_timing(&mut self, timing: u16) -> Result<(), u16> {

@@ -5,12 +5,12 @@ use super::view::{ViewAction, ViewContext, Viewable};
 use crate::ui::Style;
 use crate::ui::elements::Button;
 use crate::ui::elements::ElementType;
-use crate::ui::elements::signal_viewer::{SignalViewer, Signal};
 use crate::ui::elements::TopBar;
+use crate::ui::elements::signal_viewer::{Signal, SignalViewer};
 
+use crate::devices::cc1101::{RadioCommand, RadioEvent, RadioSignal};
 use crate::devices::controller::ControllerEvent;
 use crate::devices::display::Display;
-use crate::devices::cc1101::{RadioEvent, RadioCommand, RadioSignal};
 
 use crate::services::router::{RouterCommand, RouterEvent};
 
@@ -38,7 +38,7 @@ pub struct RadioRxView<'a> {
 
 impl<'a> RadioRxView<'a> {
     pub async fn new(style: &'a Style) -> Self {
-        let last_sig = crate::devices::ir::SIGNAL_HISTORY
+        let last_sig = crate::devices::cc1101::SIGNAL_HISTORY
             .get()
             .lock()
             .await
@@ -47,7 +47,7 @@ impl<'a> RadioRxView<'a> {
 
         Self {
             last_signal: last_sig.clone(),
-            topbar: TopBar::new(style, "IR_RX"),
+            topbar: TopBar::new(style, "RADIO_RX"),
             signal_viewer: SignalViewer::new(
                 style,
                 last_sig,
@@ -105,9 +105,8 @@ impl<'a> RadioRxView<'a> {
                 self.topbar.stop_record();
 
                 self.last_signal = Some(sig);
-                self.signal_viewer
-                    .set_signal(self.last_signal.clone());
-            },
+                self.signal_viewer.set_signal(self.last_signal.clone());
+            }
             _ => self.topbar.stop_record(),
         }
     }

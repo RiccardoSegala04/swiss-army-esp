@@ -8,6 +8,7 @@ use super::dummy_view::DummyView;
 use super::ir_rx_view::IrRxView;
 use super::ir_saved_view::IrSavedView;
 use super::main_menu_view::MainMenuView;
+use super::radio_rx_view::RadioRxView;
 use crate::ui::views::snake_view::SnakeView;
 
 use crate::services::router::{RouterCommand, RouterEvent};
@@ -32,7 +33,7 @@ pub enum ViewType {
 impl ViewType {
     pub fn title(&self) -> &'static str {
         match self {
-            ViewType::MainMenuView => "PIPU ZERO",
+            ViewType::MainMenuView => "SWISS ARMY ESP",
             ViewType::IrRxView => "IR RX",
             ViewType::RadioRxView => "RADIO RX",
             ViewType::IrSavedView => "IR SAVED",

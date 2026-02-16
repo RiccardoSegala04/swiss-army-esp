@@ -3,20 +3,20 @@ use embassy_futures::select::{Either, select};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::{Channel, DynamicReceiver, DynamicSender};
 
-use crate::devices::controller;
 use crate::devices::ir;
+use crate::devices::{cc1101, controller};
 
 pub enum RouterCommand {
     ControllerCommand(controller::ControllerCommand),
     InfraredCommand(ir::InfraredCommand),
-    RadioCommand(radio::RadioCommand),
+    RadioCommand(cc1101::RadioCommand),
 }
 
 #[derive(Clone)]
 pub enum RouterEvent {
     ControllerEvent(controller::ControllerEvent),
     InfraredEvent(ir::InfraredEvent),
-    RadioEvent(radio::RadioEvent),
+    RadioEvent(cc1101::RadioEvent),
 }
 
 pub static COMMANDS_CHANNEL: Channel<CriticalSectionRawMutex, RouterCommand, 1> = Channel::new();
@@ -32,7 +32,7 @@ pub struct RouterService<'a> {
 
     controller_channel: DynamicSender<'a, controller::ControllerCommand>,
     infrared_channel: DynamicSender<'a, ir::InfraredCommand>,
-    radio_channel: DynamicSender<'a, ir::RadioCommand>,
+    radio_channel: DynamicSender<'a, cc1101::RadioCommand>,
 }
 
 impl<'a> RouterService<'a> {
@@ -41,7 +41,7 @@ impl<'a> RouterService<'a> {
         cli_channel: DynamicSender<'static, RouterEvent>,
         controller_channel: DynamicSender<'static, controller::ControllerCommand>,
         infrared_channel: DynamicSender<'static, ir::InfraredCommand>,
-        radio_channel: DynamicSender<'static, ir::RadioCommand>,
+        radio_channel: DynamicSender<'static, cc1101::RadioCommand>,
     ) -> Self {
         Self {
             command_channel: COMMANDS_CHANNEL.dyn_receiver(),

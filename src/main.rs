@@ -11,16 +11,21 @@
 )]
 
 use crate::alloc::string::ToString;
+use crate::services::cc1101::RadioService;
 use defmt::info;
 use embassy_executor::{Spawner, task};
+use embedded_hal_bus::spi::ExclusiveDevice;
 use esp_hal::gpio::{DriveMode, Input, InputConfig, Level, Output, OutputConfig, Pull};
 
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
+use embedded_time::rate::Hertz;
 use esp_hal::timer::timg::TimerGroup;
 
 mod devices;
 use devices::Controller;
+use devices::cc1101::Cc1101;
+use devices::cc1101_driver::CC1101Driver;
 use devices::display::DisplaySsd1306;
 use devices::ir::Infrared;
 
@@ -42,6 +47,11 @@ use esp_hal::ledc::{self, LSGlobalClkSource, Ledc, LowSpeed};
 use esp_hal::i2c::master::I2c;
 use esp_hal::{i2c::master::Config as I2cConfig, time::Rate};
 use ssd1306::{I2CDisplayInterface, Ssd1306, prelude::*};
+
+use esp_hal::spi::{
+    BitOrder as SpiBitOrder, Mode as SpiMode,
+    master::{Config as SpiConfig, Spi},
+};
 
 use core::{net::Ipv4Addr, str::FromStr};
 
@@ -167,6 +177,19 @@ async fn net_task(mut runner: Runner<'static, WifiDevice<'static>>) {
     runner.run().await
 }
 
+#[task]
+pub async fn radio_task(
+    mut service: RadioService<
+        ExclusiveDevice<Spi<'static, esp_hal::Async>, Output<'static>, embassy_time::Delay>,
+        Output<'static>,
+        Input<'static>,
+    >,
+) {
+    loop {
+        service.run().await;
+    }
+}
+
 #[esp_rtos::main]
 async fn main(spawner: Spawner) -> ! {
     // generator version: 1.0.1
@@ -266,6 +289,33 @@ async fn main(spawner: Spawner) -> ! {
     let ir_rx = Input::new(peripherals.GPIO3, InputConfig::default());
     let mut ledc = Ledc::new(peripherals.LEDC);
 
+    // cc1101 instantiation
+    let cc1101_csn = Output::new(peripherals.GPIO9, Level::High, OutputConfig::default());
+    let cc1101_tx = Output::new(peripherals.GPIO10, Level::Low, OutputConfig::default());
+    let cc1101_rx = Input::new(peripherals.GPIO11, InputConfig::default());
+
+    let spi_config = SpiConfig::default()
+        .with_frequency(Rate::from_mhz(5))
+        .with_mode(SpiMode::_0)
+        .with_read_bit_order(SpiBitOrder::MsbFirst)
+        .with_write_bit_order(SpiBitOrder::MsbFirst);
+
+    let spi = Spi::new(peripherals.SPI2, spi_config)
+        .unwrap()
+        .with_sck(peripherals.GPIO12)
+        .with_mosi(peripherals.GPIO13)
+        .with_miso(peripherals.GPIO14)
+        .into_async();
+
+    let spi_cc1101 = ExclusiveDevice::new(spi, cc1101_csn, embassy_time::Delay).unwrap();
+
+    use devices::cc1101_driver::CC1101Driver;
+    let cc1101_driver = CC1101Driver::new(spi_cc1101, Hertz::new(26000000)).await;
+    let mut cc1101 = Cc1101::new(cc1101_driver, cc1101_tx, cc1101_rx)
+        .await
+        .unwrap();
+    let radio_service = RadioService::new(RouterService::event_sender(), cc1101);
+
     // Cli Service
     let cli_service = CliService::new(RouterService::command_sender(), stack);
 
@@ -275,6 +325,11 @@ async fn main(spawner: Spawner) -> ! {
         CliService::event_sender(),
         ControllerService::<Input>::command_sender(),
         InfraredService::<ledc::channel::Channel<'static, LowSpeed>, Input>::command_sender(),
+        RadioService::<
+            ExclusiveDevice<Spi<'_, esp_hal::Async>, Output<'_>, embassy_time::Delay>,
+            Output,
+            Input,
+        >::command_sender(),
     );
 
     // Starting Tasks
@@ -284,6 +339,8 @@ async fn main(spawner: Spawner) -> ! {
     spawner.spawn(controller_task(controller_service)).unwrap();
     info!("Starting Infrared Task");
     spawner.spawn(infrared_task(led, ledc, ir_rx)).unwrap();
+    info!("Starting CC1101 Task");
+    spawner.spawn(radio_task(radio_service)).unwrap();
     info!("Starting Cli Task");
     spawner.spawn(cli_task(cli_service)).unwrap();
 

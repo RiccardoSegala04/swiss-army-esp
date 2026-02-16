@@ -3,24 +3,26 @@ use embedded_hal_async::spi::{
     Operation::{Read, Transfer, Write},
     SpiDevice,
 };
+use embedded_time::rate::{Baud, Hertz};
 
 pub struct CC1101Driver<SPId> {
     cc1101_spi: SPId,
+    pub xosc_freq: Hertz,
 }
 
 impl<SPId> CC1101Driver<SPId>
 where
     SPId: SpiDevice,
 {
-    pub async fn new(spi_dev: SPId) -> Self {
+    pub async fn new(spi_dev: SPId, xosc_freq: Hertz) -> Self {
         Self {
             cc1101_spi: spi_dev,
+            xosc_freq: xosc_freq,
         }
     }
 
     pub async fn write_reg(&mut self, reg: Register, value: u8) -> Result<(), <SPId>::Error> {
         let address = (reg as u8) | (RegOffset::Write as u8);
-
         self.cc1101_spi
             .transaction(&mut [
                 Write(&[address]), //
@@ -89,14 +91,53 @@ where
         Ok(StatusByte::from_bits(reply[0]))
     }
 
-    pub async fn set_reg_bit(&mut self, active: bool, reg: Register) -> Result<(), <SPId>::Error> {
+    pub async fn set_reg_bit(
+        &mut self,
+        reg: Register,
+        active: bool,
+        bit: u8,
+    ) -> Result<(), <SPId>::Error> {
         let reg_before = self.read_reg(reg).await?;
         let reg_new = if active {
-            reg_before | 0x40
+            reg_before | (1 << bit)
         } else {
-            reg_before & !0x40
+            reg_before & !(1 << bit)
         };
         self.write_reg(reg, reg_new).await
+    }
+
+    pub async fn write_reg_field(
+        &mut self,
+        reg: Register,
+        data: u8,
+        hi: u8,
+        lo: u8,
+    ) -> Result<(), <SPId>::Error> {
+        let data = data << lo;
+        let current = self.read_reg(reg).await?;
+        let mask = ((1 << (hi - lo + 1)) - 1) << lo;
+        let data = (current & !mask) | (data & mask);
+        self.write_reg(reg, data).await
+    }
+
+    pub async fn read_reg_field(
+        &mut self,
+        reg: Register,
+        hi: u8,
+        lo: u8,
+    ) -> Result<u8, <SPId>::Error> {
+        let regval = self.read_reg(reg).await?;
+        Ok((regval >> lo) & ((1 << (hi - lo + 1)) - 1))
+    }
+
+    pub async fn read_status_field(
+        &mut self,
+        reg: StatusReg,
+        hi: u8,
+        lo: u8,
+    ) -> Result<u8, <SPId>::Error> {
+        let regval = self.read_status(reg).await?;
+        Ok((regval >> lo) & ((1 << (hi - lo + 1)) - 1))
     }
 }
 
@@ -152,7 +193,7 @@ pub enum Register {
     TEST1 = 0x2D,    // Various test settings
     TEST0 = 0x2E,    // Various test settings
 
-    //CC1101 PATABLE,TXFIFO,RXFIFO
+    //Cc1101 PATABLE,TXFIFO,RXFIFO
     PATABLE = 0x3E,
     TXRX_FIFO = 0x3F,
 }
@@ -161,7 +202,7 @@ pub enum Register {
 #[derive(Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum StatusReg {
-    // CC1101 STATUS REGISTERS
+    // Cc1101 STATUS REGISTERS
     PARTNUM = 0x30,
     VERSION = 0x31,
     FREQEST = 0x32,
@@ -182,7 +223,7 @@ pub enum StatusReg {
 #[derive(Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum StrobeCmd {
-    // CC1101 Strobe commands
+    // Cc1101 Strobe commands
     SRES = 0x30,    // Reset chip.
     SFSTXON = 0x31, // Enable and calibrate frequency synthesizer (if MCSM0.FS_AUTOCAL=1).
     // If in RX/TX: Go to a wait state where only the synthesizer is
@@ -208,7 +249,7 @@ pub enum StrobeCmd {
 }
 
 #[repr(u8)]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, defmt::Format)]
 pub enum State {
     Idle = 0b000,
     Rx = 0b001,
@@ -250,6 +291,49 @@ pub struct StatusByte {
     pub state: State,
     /// The bits attribute specifies the bit size of this f
     pub ready: bool,
+}
+
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Modulation {
+    Mod2Fsk = 0b000,
+    ModGfsk = 0b001,
+    ModOok = 0b011,
+    Mod4Fsk = 0b100,
+    ModMsk = 0b111,
+}
+
+#[derive(Copy, Clone)]
+pub struct BaudRange {
+    pub min: Baud,
+    pub max: Baud,
+}
+
+impl Modulation {
+    pub const fn range(self) -> BaudRange {
+        match self {
+            Self::Mod2Fsk => BaudRange {
+                min: Baud(600),
+                max: Baud(500000),
+            },
+            Self::ModGfsk => BaudRange {
+                min: Baud(600),
+                max: Baud(250000),
+            },
+            Self::ModOok => BaudRange {
+                min: Baud(600),
+                max: Baud(250000),
+            },
+            Self::Mod4Fsk => BaudRange {
+                min: Baud(600),
+                max: Baud(300000),
+            },
+            Self::ModMsk => BaudRange {
+                min: Baud(26000),
+                max: Baud(500000),
+            },
+        }
+    }
 }
 
 #[repr(u8)]
