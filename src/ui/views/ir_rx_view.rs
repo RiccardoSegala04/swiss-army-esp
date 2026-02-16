@@ -5,7 +5,7 @@ use super::view::{ViewAction, ViewContext, Viewable};
 use crate::ui::Style;
 use crate::ui::elements::Button;
 use crate::ui::elements::ElementType;
-use crate::ui::elements::IrSignalViewer;
+use crate::ui::elements::signal_viewer::{SignalViewer, Signal};
 use crate::ui::elements::TopBar;
 
 use crate::devices::controller::ControllerEvent;
@@ -19,11 +19,17 @@ static SAMPLE_TIMINGS: &[u16] = &[
     560, 1690, 560, 1690, 560, 1690, 560, 560, 1690,
 ];
 
+impl Signal for IrSignal {
+    fn timings(&self) -> &[u16] {
+        self.timings.as_slice()
+    }
+}
+
 pub struct IrRxView<'a> {
     topbar: TopBar<'a>,
     last_signal: Option<IrSignal>,
 
-    signal_viewer: IrSignalViewer<'a>,
+    signal_viewer: SignalViewer<'a, IrSignal>,
     elements: [ElementType<'a>; 2],
     sel_idx: usize,
 
@@ -38,12 +44,13 @@ impl<'a> IrRxView<'a> {
             .await
             .last()
             .cloned();
+
         Self {
             last_signal: last_sig.clone(),
             topbar: TopBar::new(style, "IR_RX"),
-            signal_viewer: IrSignalViewer::selected_new(
+            signal_viewer: SignalViewer::new(
                 style,
-                last_sig.clone(),
+                last_sig,
                 Point::new(63, 31),
                 Size::new(118, 23),
             ),
@@ -97,13 +104,12 @@ impl<'a> IrRxView<'a> {
             InfraredEvent::Signal(sig) => {
                 self.topbar.stop_record();
 
-                self.signal_viewer.set_signal(sig.clone());
-
                 self.last_signal = Some(sig);
+                self.signal_viewer
+                    .set_signal(self.last_signal.clone());
             }
             InfraredEvent::NoSignal | InfraredEvent::SignalTooLong => self.topbar.stop_record(),
             InfraredEvent::SignalPlayed => self.topbar.stop_record(),
-            _ => {}
         }
     }
 

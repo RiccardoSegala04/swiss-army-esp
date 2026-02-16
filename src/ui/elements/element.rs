@@ -1,10 +1,9 @@
 use embedded_graphics::{draw_target::DrawTarget, pixelcolor::BinaryColor, prelude::*};
 
-use crate::ui::elements::{button, ir_signal_viewer};
+use crate::ui::elements::{button};
 
 pub enum ElementType<'a> {
     Button(button::Button<'a>),
-    IrSignalViewer(ir_signal_viewer::IrSignalViewer<'a>),
 }
 
 macro_rules! delegate_method {
@@ -12,7 +11,6 @@ macro_rules! delegate_method {
         pub fn $fn_name(&mut self $(, $arg : $ty)*) {
             match self {
                 ElementType::Button(e) => e.$fn_name($($arg),*),
-                ElementType::IrSignalViewer(e) => e.$fn_name($($arg),*),
             }
         }
     };
@@ -33,7 +31,6 @@ impl<'a> Drawable for ElementType<'a> {
     {
         match self {
             ElementType::Button(e) => e.draw(target),
-            ElementType::IrSignalViewer(e) => e.draw(target),
         }
     }
 }
@@ -49,4 +46,3 @@ macro_rules! impl_from_element {
 }
 
 impl_from_element!(Button, button::Button<'a>);
-impl_from_element!(IrSignalViewer, ir_signal_viewer::IrSignalViewer<'a>);

@@ -35,21 +35,18 @@ pub enum InfraredEvent {
 #[derive(Clone)]
 pub struct IrSignal {
     pub timings: Vec<u16, 256>,
-    level_high: bool,
 }
 
 impl IrSignal {
     pub fn new() -> Self {
         Self {
             timings: Vec::new(),
-            level_high: true,
         }
     }
 
     pub fn with_timings(timings: Vec<u16, 256>) -> Self {
         Self {
             timings: timings,
-            level_high: true,
         }
     }
 
