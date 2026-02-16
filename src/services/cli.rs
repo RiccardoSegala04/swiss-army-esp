@@ -16,6 +16,7 @@ use embassy_futures::select::{Either, select};
 use embedded_io_async::Write;
 
 use crate::devices::ir::{InfraredCommand, InfraredEvent};
+use crate::devices::cc1101::{RadioCommand, RadioEvent};
 use crate::services::router::{RouterCommand, RouterEvent};
 
 use embedded_cli::{
@@ -44,22 +45,29 @@ const LOGO: &'static str = r#"
 
 #[derive(Command, Clone)]
 enum Ir {
-    Record,
+    Rx,
     List,
-    Transmit { idx: u8 },
+    Tx { idx: u8 },
+}
+
+#[derive(Command, Clone)]
+enum Radio {
+    Rx,
+    List,
+    Tx { idx: u8 },
 }
 
 #[derive(Command, Clone)]
 enum Base {
-    /// Say hello to World or someone else
-    Hello {
-        /// To whom to say hello (World by default)
-        n: u8,
-    },
 
     Ir {
         #[command(subcommand)]
         ir: Ir,
+    },
+
+    Radio {
+        #[command(subcommand)]
+        radio: Radio,
     },
 
     /// Stop CLI and exit
@@ -100,7 +108,7 @@ impl<'a> CliService<'a> {
 
     async fn handle_ir_command(&self, socket: &mut TcpSocket<'_>, command: Ir) {
         match command {
-            Ir::Record => {
+            Ir::Rx => {
                 self.commands_sender
                     .send(RouterCommand::InfraredCommand(InfraredCommand::Listen))
                     .await;
@@ -138,7 +146,7 @@ impl<'a> CliService<'a> {
                 socket.write_all(b"\n").await;
             }
 
-            Ir::Transmit { idx } => {
+            Ir::Tx { idx } => {
                 let sig = crate::devices::ir::SIGNAL_HISTORY
                     .get()
                     .lock()
@@ -166,16 +174,81 @@ impl<'a> CliService<'a> {
         }
     }
 
+    async fn handle_radio_command(&self, socket: &mut TcpSocket<'_>, command: Radio) {
+        match command {
+            Radio::Rx => {
+                self.commands_sender
+                    .send(RouterCommand::RadioCommand(RadioCommand::Listen))
+                    .await;
+
+                socket.write_all(b"Listening...\n").await;
+
+                loop {
+                    let ev = self.events_receiver.receive().await;
+
+                    if let RouterEvent::RadioEvent(radio) = ev {
+                        match radio {
+                            RadioEvent::SignalTooLong => {
+                                socket.write_all(b"Signal was too long\n").await;
+                                break;
+                            }
+                            RadioEvent::NoSignal => {
+                                socket.write_all(b"No signal detected\n").await;
+                                break;
+                            }
+                            RadioEvent::Signal(_) => {
+                                socket.write_all(b"Signal recorded\n").await;
+                                break;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+
+            Radio::List => {
+                let len = crate::devices::cc1101::SIGNAL_HISTORY.get().lock().await.len();
+                for i in 0..len {
+                    socket.write_all(b"X ").await;
+                }
+                socket.write_all(b"\n").await;
+            }
+
+            Radio::Tx { idx } => {
+                let sig = crate::devices::cc1101::SIGNAL_HISTORY
+                    .get()
+                    .lock()
+                    .await
+                    .get(idx as usize)
+                    .cloned();
+
+                if let Some(sig) = sig {
+                    self.commands_sender
+                        .send(RouterCommand::RadioCommand(RadioCommand::Play(sig)))
+                        .await;
+
+                    loop {
+                        let ev = self.events_receiver.receive().await;
+
+                        if let RouterEvent::RadioEvent(RadioEvent::SignalPlayed) = ev {
+                            socket.write_all(b"Signal transmitted\n").await;
+                            break;
+                        }
+                    }
+                } else {
+                    socket.write_all(b"Invalid index\n").await;
+                }
+            }
+        }
+    }
+
     async fn handle_command(&self, socket: &mut TcpSocket<'_>, command: Option<Base>) {
         if let Some(c) = command {
             match c {
-                Base::Hello { n } => {
-                    for i in 0..n {
-                        let _ = socket.write_all(b"Hello\n").await;
-                    }
-                }
 
                 Base::Ir { ir } => self.handle_ir_command(socket, ir).await,
+
+                Base::Radio { radio } => self.handle_radio_command(socket, radio).await,
 
                 Base::Exit => {
                     let _ = socket.write_all(b"Exit\n").await;

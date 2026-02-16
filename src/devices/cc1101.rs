@@ -9,14 +9,30 @@ use embedded_hal::digital::{InputPin, OutputPin};
 use embedded_hal_async::digital::Wait;
 use embedded_hal_async::spi::SpiDevice;
 use embedded_time::rate::{self, Baud, Hertz};
-use heapless::Vec;
+
+use heapless::{Vec, String};
 
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::lazy_lock::LazyLock;
 use embassy_sync::mutex::Mutex;
 
+use esp_hal::delay::Delay;
+
 pub static SIGNAL_HISTORY: LazyLock<Mutex<CriticalSectionRawMutex, Vec<RadioSignal, 5>>> =
-    LazyLock::new(|| Mutex::new(Vec::new()));
+    LazyLock::new(|| {
+        Mutex::new(Vec::from_array([
+            RadioSignal::new().with_timings(Vec::<u16, 1024>::from_array([
+                180, 632, 180, 632, 180, 632, 632, 240, 180, 632, 180, 632, 180, 632, 632, 240,
+                180, 632, 180, 632, 180, 632, 632, 240, 180, 632, 180, 632, 180, 632, 632, 240,
+                180, 632, 180, 632, 180, 632, 180, 632, 632, 240, 632, 240, 180, 632, 180, 632,
+                180, 632,
+            ])),
+            RadioSignal::new().with_timings(Vec::<u16, 1024>::from_array([
+                304, 732, 304, 304, 732, 304, 732, 732, 304, 732, 304, 304, 732, 732, 304, 304,
+                732, 732, 304, 304, 732, 732, 304, 304, 732, 732,
+            ])).with_name("GATE TN"),
+        ]))
+    });
 
 #[derive(Clone)]
 pub enum RadioEvent {
@@ -34,6 +50,7 @@ pub enum RadioCommand {
 
 #[derive(Clone)]
 pub struct RadioSignal {
+    pub name: String<16>,
     pub timings: Vec<u16, 1024>,
     pub frequency: rate::Hertz,
     pub modulation: Modulation,
@@ -42,10 +59,17 @@ pub struct RadioSignal {
 impl RadioSignal {
     pub fn new() -> Self {
         Self {
+            name: String::try_from("RADIO SIG").unwrap(),
             timings: Vec::new(),
-            frequency: Hertz(433_000_000),
+            frequency: Hertz(433_894_000),
             modulation: Modulation::ModOok,
         }
+    }
+
+    pub fn with_name(self, name: &str) -> Self {
+        let mut copied = self;
+        copied.name = String::try_from(name).unwrap();
+        copied
     }
 
     pub fn with_timings(self, timings: Vec<u16, 1024>) -> Self {
@@ -111,7 +135,7 @@ where
         let mut device = Self {
             chip: driver,
             modulation: Modulation::ModOok,
-            frequency: Hertz(433_000_000),
+            frequency: Hertz(433_894_000),
             tx: tx,
             rx: rx,
         };
@@ -128,7 +152,7 @@ where
             .await?;
 
         device.set_modulation(Modulation::ModOok).await?;
-        device.set_frequency(Hertz(433982000)).await?;
+        device.set_frequency(Hertz(433_894_000)).await?;
         device.set_manchester_encoding(false).await?;
         device.set_whitening(false).await?;
         device
@@ -165,7 +189,6 @@ where
         device.chip.write_reg(Register::AGCCTRL0, 0x91).await?;
 
         device.set_baudrate(Baud(4800)).await?;
-        device.cacca().await?;
 
         Ok(device)
     }
@@ -387,200 +410,24 @@ where
         &mut self,
         signal: &RadioSignal,
     ) -> Result<(), CC1101Error<SPId::Error>> {
-        self.set_frequency(signal.frequency);
-        self.set_modulation(signal.modulation);
+        self.set_frequency(signal.frequency).await;
+        self.set_modulation(signal.modulation).await;
 
         info!("transmitting");
         self.go_tx().await?;
         let mut tx = true;
-        for sample in &signal.timings {
-            self.tx_set(tx);
-            tx = !tx;
 
-            Timer::after(Duration::from_micros(*sample as u64)).await;
+        for _ in 0..50 {
+            for sample in &signal.timings {
+                self.tx_set(tx);
+                tx = !tx;
+                Timer::after(Duration::from_micros(*sample as u64)).await;
+            }
+            Timer::after(Duration::from_micros(12000)).await;
         }
 
         self.tx_off();
-
-        Ok(())
-    }
-
-    pub async fn cacca(&mut self) -> Result<(), CC1101Error<SPId::Error>> {
-        self.go_tx().await?;
-
-        for _ in 0..30 {
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            self.tx_on(); // 0
-            Timer::after(Duration::from_micros(632)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(240)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            self.tx_on(); // 0
-            Timer::after(Duration::from_micros(632)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(240)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            self.tx_on(); // 0
-            Timer::after(Duration::from_micros(632)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(240)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            self.tx_on(); // 0
-            Timer::after(Duration::from_micros(632)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(240)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            self.tx_on(); // 0
-            Timer::after(Duration::from_micros(632)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(240)).await;
-
-            self.tx_on(); // 0
-            Timer::after(Duration::from_micros(632)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(240)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(180)).await;
-            self.tx_off();
-            Timer::after(Duration::from_micros(632)).await;
-
-            Timer::after(Duration::from_micros(6320)).await;
-        }
         self.go_idle().await?;
-
-        Timer::after(Duration::from_millis(1000)).await;
-
-        for _ in 0..30 {
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(304)).await;
-            self.tx_off(); // 1
-            Timer::after(Duration::from_micros(732)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(304)).await;
-            self.tx_off(); // 1
-            Timer::after(Duration::from_micros(304)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(304)).await;
-            self.tx_off(); // 1
-            Timer::after(Duration::from_micros(732)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(304)).await;
-            self.tx_off(); // 1
-            Timer::after(Duration::from_micros(732)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(304)).await;
-            self.tx_off(); // 1
-            Timer::after(Duration::from_micros(732)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(304)).await;
-            self.tx_off(); // 1
-            Timer::after(Duration::from_micros(732)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(304)).await;
-            self.tx_off(); // 1
-            Timer::after(Duration::from_micros(732)).await;
-
-            self.tx_on(); // 1
-            Timer::after(Duration::from_micros(304)).await;
-            self.tx_off(); // 1
-            Timer::after(Duration::from_micros(732)).await;
-        }
 
         Ok(())
     }
@@ -591,7 +438,6 @@ where
             .with_modulation(self.modulation);
         let mut last_edge: Option<Instant> = None;
 
-        info!("started listening");
         self.go_rx().await?;
 
         Timer::after(Duration::from_millis(1000)).await;
@@ -599,7 +445,7 @@ where
         let mut timeout = Timer::after(Duration::from_millis(2000));
         let mut rising = true;
 
-        const MIN_PULSE_US: u16 = 150;
+        const MIN_PULSE_US: u16 = 50;
 
         loop {
             // Step 1: Wait for rising edge
@@ -623,7 +469,8 @@ where
                 }
             }
             last_edge = Some(now_rising);
-            let mut timeout = Timer::after(Duration::from_millis(2000));
+
+            timeout = Timer::after(Duration::from_millis(20));
 
             // Step 2: Wait for falling edge
             let edge = self.rx.wait_for_falling_edge();
@@ -646,7 +493,7 @@ where
             last_edge = Some(now_falling);
 
             // Reset timeout for next iteration
-            timeout = Timer::after(Duration::from_millis(50));
+            timeout = Timer::after(Duration::from_millis(20));
         }
 
         self.go_idle().await?;

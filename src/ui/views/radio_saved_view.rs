@@ -1,10 +1,11 @@
+use defmt::info;
 use embedded_graphics::{draw_target::DrawTarget, prelude::*, text::Text};
-use heapless::Vec;
+use heapless::{String, Vec};
 
-use crate::services::router::RouterEvent;
-
+use crate::devices::cc1101::{RadioCommand, RadioEvent, RadioSignal};
 use crate::devices::controller::ControllerEvent;
 use crate::devices::display::Display;
+use crate::services::router::{RouterCommand, RouterEvent};
 
 use super::view::{ViewAction, ViewContext, ViewType, Viewable};
 
@@ -21,26 +22,23 @@ const MARKER_TEXT_GAP: i32 = 2;
 const ITEM_HEIGHT: i32 = 10;
 const LIST_START_Y: i32 = 22;
 
-pub struct MainMenuView<'a> {
+pub struct RadioSavedView<'a> {
     topbar: TopBar<'a>,
     list: List<'a>,
-    elements: Vec<ViewType, 10>,
     style: &'a Style,
 }
 
-impl<'a> MainMenuView<'a> {
-    pub fn new(style: &'a Style) -> Self {
-        let elem = Vec::from_array([
-            ViewType::IrRxView,
-            ViewType::IrSavedView,
-            ViewType::RadioRxView,
-            ViewType::RadioSavedView,
-            ViewType::SnakeView,
-            ViewType::DummyView("View 1"),
-            ViewType::DummyView("View 2"),
-        ]);
+impl<'a> RadioSavedView<'a> {
+    pub async fn new(style: &'a Style) -> Self {
+        // Lock the signal history
+        let history_lock = crate::devices::cc1101::SIGNAL_HISTORY.get().lock().await;
 
-        let elem_str: Vec<&str, 10> = elem.iter().map(|v| v.title()).collect();
+        // TODO: add number to saved signals
+        let elem_str: Vec<&str, 10> = history_lock.iter().map(|_| "RADIO SIG").collect();
+
+        for str in &elem_str {
+            info!("{}", str);
+        }
 
         Self {
             list: List::new(
@@ -49,8 +47,7 @@ impl<'a> MainMenuView<'a> {
                 Size::new(128 - 8, 64 - 16 - 8),
                 elem_str,
             ),
-            topbar: TopBar::new(style, "Swiss Army Esp"),
-            elements: elem,
+            topbar: TopBar::new(style, "RADIO SAVED"),
             style,
         }
     }
@@ -71,7 +68,7 @@ impl<'a> MainMenuView<'a> {
     }
 }
 
-impl<'a, D> Viewable<D> for MainMenuView<'a>
+impl<'a, D> Viewable<D> for RadioSavedView<'a>
 where
     D: Display,
 {
@@ -79,9 +76,9 @@ where
         &mut self,
         context: &mut ViewContext<'_, D>,
     ) -> Result<ViewAction, <D::Target as DrawTarget>::Error> {
-        loop {
-            self.draw(context.display)?;
+        self.draw(context.display)?;
 
+        loop {
             let ev = context.receiver.receive().await;
 
             match ev {
@@ -90,10 +87,20 @@ where
                         ControllerEvent::NavNextPressed => self.list.select_next(),
                         ControllerEvent::NavPrevPressed => self.list.select_prev(),
                         ControllerEvent::ConfirmPressed => {
-                            return Ok(ViewAction::SwitchTo(
-                                self.elements[self.list.selected_index()].clone(),
-                            ));
+                            context
+                                .sender
+                                .send(RouterCommand::RadioCommand(RadioCommand::Play(
+                                    crate::devices::cc1101::SIGNAL_HISTORY
+                                        .get()
+                                        .lock()
+                                        .await
+                                        .get(self.list.selected_index())
+                                        .unwrap()
+                                        .clone(),
+                                )))
+                                .await
                         }
+                        ControllerEvent::BackPressed => return Ok(ViewAction::Exit),
                         _ => {}
                     };
                 }

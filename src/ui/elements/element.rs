@@ -1,6 +1,6 @@
 use embedded_graphics::{draw_target::DrawTarget, pixelcolor::BinaryColor, prelude::*};
 
-use crate::ui::elements::{button};
+use crate::ui::elements::button;
 
 pub enum ElementType<'a> {
     Button(button::Button<'a>),

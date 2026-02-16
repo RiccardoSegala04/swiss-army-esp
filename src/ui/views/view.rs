@@ -9,6 +9,7 @@ use super::ir_rx_view::IrRxView;
 use super::ir_saved_view::IrSavedView;
 use super::main_menu_view::MainMenuView;
 use super::radio_rx_view::RadioRxView;
+use super::radio_saved_view::RadioSavedView;
 use crate::ui::views::snake_view::SnakeView;
 
 use crate::services::router::{RouterCommand, RouterEvent};
@@ -26,6 +27,7 @@ pub enum ViewType {
     IrRxView,
     IrSavedView,
     RadioRxView,
+    RadioSavedView,
     SnakeView,
     DummyView(&'static str),
 }
@@ -37,6 +39,7 @@ impl ViewType {
             ViewType::IrRxView => "IR RX",
             ViewType::RadioRxView => "RADIO RX",
             ViewType::IrSavedView => "IR SAVED",
+            ViewType::RadioSavedView => "RADIO SAVED",
             ViewType::SnakeView => "SNAKE",
             ViewType::DummyView(t) => t,
         }
@@ -52,6 +55,7 @@ impl ViewType {
             ViewType::IrRxView => IrRxView::new(style).await.run(context).await,
             ViewType::RadioRxView => RadioRxView::new(style).await.run(context).await,
             ViewType::IrSavedView => IrSavedView::new(style).await.run(context).await,
+            ViewType::RadioSavedView => RadioSavedView::new(style).await.run(context).await,
             ViewType::SnakeView => SnakeView::new(style).run(context).await,
             ViewType::DummyView(t) => DummyView::new(t).run(context).await,
         }

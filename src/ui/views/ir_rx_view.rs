@@ -5,8 +5,8 @@ use super::view::{ViewAction, ViewContext, Viewable};
 use crate::ui::Style;
 use crate::ui::elements::Button;
 use crate::ui::elements::ElementType;
-use crate::ui::elements::signal_viewer::{SignalViewer, Signal};
 use crate::ui::elements::TopBar;
+use crate::ui::elements::signal_viewer::{Signal, SignalViewer};
 
 use crate::devices::controller::ControllerEvent;
 use crate::devices::display::Display;
@@ -105,9 +105,8 @@ impl<'a> IrRxView<'a> {
                 self.topbar.stop_record();
 
                 self.last_signal = Some(sig);
-                self.signal_viewer
-                    .set_signal(self.last_signal.clone());
-            },
+                self.signal_viewer.set_signal(self.last_signal.clone());
+            }
             _ => self.topbar.stop_record(),
         }
     }

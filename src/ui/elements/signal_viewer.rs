@@ -14,7 +14,7 @@ pub trait Signal {
 
 pub struct SignalViewer<'a, S>
 where
-    S: Signal
+    S: Signal,
 {
     signal: Option<S>,
     center: Point,
@@ -24,7 +24,7 @@ where
 
 impl<'a, S> SignalViewer<'a, S>
 where
-    S: Signal
+    S: Signal,
 {
     pub fn new(style: &'a Style, signal: Option<S>, center: Point, size: Size) -> Self {
         Self {
@@ -48,7 +48,6 @@ where
     where
         D: DrawTarget<Color = BinaryColor>,
     {
-
         if let Some(signal) = &self.signal {
             if let Some(min) = signal.timings().iter().copied().min() {
                 let mut high = true;
@@ -103,7 +102,7 @@ where
 
 impl<'a, S> Drawable for SignalViewer<'a, S>
 where
-    S: Signal
+    S: Signal,
 {
     type Color = BinaryColor;
     type Output = ();
