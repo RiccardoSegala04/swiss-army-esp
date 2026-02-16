@@ -69,7 +69,7 @@ use esp_hal::spi::{
 
 use embedded_hal_bus::spi::ExclusiveDevice;
 
-use crate::devices::cc1101::CC1101;
+use crate::devices::cc1101::Cc1101;
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -275,11 +275,11 @@ async fn main(spawner: Spawner) -> ! {
 
     use devices::cc1101_driver::CC1101Driver;
     let cc1101_driver = CC1101Driver::new(spi_cc1101, Hertz::new(26000000)).await;
-    let mut cc1101 = CC1101::new(cc1101_driver).await.unwrap();
+    let mut cc1101 = Cc1101::new(cc1101_driver).await.unwrap();
 
     info!("cc1101 initialized");
     info!(
-        "CC1101 version: {}",
+        "Cc1101 version: {}",
         cc1101
             .chip
             .read_status(devices::cc1101_driver::StatusReg::VERSION)
@@ -348,7 +348,7 @@ async fn main(spawner: Spawner) -> ! {
         //    ir_rx_view.run(&mut ctx).await.unwrap();
 
         let state = cc1101.get_state().await.unwrap();
-        info!("CC1101 state: {:?}", state);
+        info!("Cc1101 state: {:?}", state);
 
         Timer::after(Duration::from_millis(1000)).await;
     }

@@ -67,6 +67,7 @@ edge-dhcp = "0.7.0"
 edge-nal = "0.6.0"
 edge-nal-embassy = "0.8.1"
 embedded-hal-bus = { version = "0.3.0", features = ["async"] }
+fpmath = "0.1.1"
 
 
 [profile.dev]

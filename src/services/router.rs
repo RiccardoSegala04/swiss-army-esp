@@ -2,8 +2,8 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel;
 use embassy_sync::channel::{DynamicReceiver, DynamicSender};
 
-use crate::devices::controller;
 use crate::devices::ir;
+use crate::devices::{cc1101, controller};
 
 pub enum RouterCommand {
     ControllerCommand(controller::ControllerCommand),
@@ -54,4 +54,3 @@ impl<'a> RouterService<'a> {
         }
     }
 }
-
