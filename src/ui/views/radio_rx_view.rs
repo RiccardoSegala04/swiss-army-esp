@@ -107,9 +107,8 @@ impl<'a> RadioRxView<'a> {
                 self.last_signal = Some(sig);
                 self.signal_viewer
                     .set_signal(self.last_signal.clone());
-            }
-            RadioEvent::NoSignal | RadioEvent::SignalTooLong => self.topbar.stop_record(),
-            RadioEvent::SignalPlayed => self.topbar.stop_record(),
+            },
+            _ => self.topbar.stop_record(),
         }
     }
 
