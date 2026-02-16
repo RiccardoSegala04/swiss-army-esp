@@ -33,6 +33,7 @@ pub enum ViewType {
 }
 
 impl ViewType {
+
     pub fn title(&self) -> &'static str {
         match self {
             ViewType::MainMenuView => "SWISS ARMY ESP",

@@ -36,8 +36,6 @@ impl<'a> MainMenuView<'a> {
             ViewType::RadioRxView,
             ViewType::RadioSavedView,
             ViewType::SnakeView,
-            ViewType::DummyView("View 1"),
-            ViewType::DummyView("View 2"),
         ]);
 
         let elem_str: Vec<&str, 10> = elem.iter().map(|v| v.title()).collect();

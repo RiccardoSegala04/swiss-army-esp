@@ -265,11 +265,11 @@ async fn main(spawner: Spawner) -> ! {
     // Controller Instantiation
     let mut controller = Controller::new(
         Input::new(
-            peripherals.GPIO4,
+            peripherals.GPIO5,
             InputConfig::default().with_pull(Pull::Up),
         ),
         Input::new(
-            peripherals.GPIO5,
+            peripherals.GPIO4,
             InputConfig::default().with_pull(Pull::Up),
         ),
         Input::new(
