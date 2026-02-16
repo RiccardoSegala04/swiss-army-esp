@@ -34,7 +34,7 @@ pub enum RadioCommand {
 
 #[derive(Clone)]
 pub struct RadioSignal {
-    pub timings: Vec<u16, 256>,
+    pub timings: Vec<u16, 1024>,
     pub frequency: rate::Hertz,
     pub modulation: Modulation,
 }
@@ -48,7 +48,7 @@ impl RadioSignal {
         }
     }
 
-    pub fn with_timings(self, timings: Vec<u16, 256>) -> Self {
+    pub fn with_timings(self, timings: Vec<u16, 1024>) -> Self {
         let mut copied = self;
         copied.timings = timings;
         copied
@@ -126,34 +126,46 @@ where
             .chip
             .write_reg_field(Register::MCSM0, 1, 5, 4)
             .await?;
+
         device.set_modulation(Modulation::ModOok).await?;
+        device.set_frequency(Hertz(433982000)).await?;
         device.set_manchester_encoding(false).await?;
         device.set_whitening(false).await?;
         device
             .chip
             .write_reg_field(Register::MDMCFG2, 0, 2, 0) // disable sync and preamble
-            .await
-            .unwrap();
+            .await?;
         device
             .chip
             .set_reg_bit(Register::PKTCTRL0, false, 2) // disable crc
-            .await
-            .unwrap();
+            .await?;
         device
             .chip
             .set_reg_bit(Register::PKTCTRL1, false, 2) // disable append status
-            .await
-            .unwrap();
+            .await?;
         device
             .chip
             .write_reg_field(Register::PKTCTRL0, 3, 5, 4) // set asynchronous serial mode
-            .await
-            .unwrap();
+            .await?;
         device
             .chip
-            .write_reg_field(Register::IOCFG1, 0x0D, 5, 0) // set gdo1 as serial out
-            .await
-            .unwrap();
+            .write_reg_field(Register::IOCFG2, 0x0D, 5, 0) // set gdo2 as serial out
+            .await?;
+        device
+            .chip
+            .write_reg_field(Register::MDMCFG4, 0b11, 7, 6)
+            .await?;
+        device
+            .chip
+            .write_reg_field(Register::MDMCFG4, 0b11, 5, 4)
+            .await?;
+
+        device.chip.write_reg(Register::AGCCTRL2, 0x43).await?;
+        device.chip.write_reg(Register::AGCCTRL1, 0x40).await?;
+        device.chip.write_reg(Register::AGCCTRL0, 0x91).await?;
+
+        device.set_baudrate(Baud(4800)).await?;
+        device.cacca().await?;
 
         Ok(device)
     }
@@ -222,6 +234,7 @@ where
         &mut self,
         freq: rate::Hertz,
     ) -> Result<(), CC1101Error<SPId::Error>> {
+        self.frequency = freq;
         let reg_new = (((freq.0 as u64) << 16) / (self.chip.xosc_freq.0 as u64)) as u32;
         self.go_idle().await?;
         self.chip.write_reg(Register::CHANNR, 0).await?;
@@ -374,13 +387,10 @@ where
         &mut self,
         signal: &RadioSignal,
     ) -> Result<(), CC1101Error<SPId::Error>> {
-        if self.frequency != signal.frequency {
-            self.set_frequency(signal.frequency);
-        }
-        if self.modulation != signal.modulation {
-            self.set_modulation(signal.modulation);
-        }
+        self.set_frequency(signal.frequency);
+        self.set_modulation(signal.modulation);
 
+        info!("transmitting");
         self.go_tx().await?;
         let mut tx = true;
         for sample in &signal.timings {
@@ -391,7 +401,186 @@ where
         }
 
         self.tx_off();
+
+        Ok(())
+    }
+
+    pub async fn cacca(&mut self) -> Result<(), CC1101Error<SPId::Error>> {
+        self.go_tx().await?;
+
+        for _ in 0..30 {
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            self.tx_on(); // 0
+            Timer::after(Duration::from_micros(632)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(240)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            self.tx_on(); // 0
+            Timer::after(Duration::from_micros(632)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(240)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            self.tx_on(); // 0
+            Timer::after(Duration::from_micros(632)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(240)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            self.tx_on(); // 0
+            Timer::after(Duration::from_micros(632)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(240)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            self.tx_on(); // 0
+            Timer::after(Duration::from_micros(632)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(240)).await;
+
+            self.tx_on(); // 0
+            Timer::after(Duration::from_micros(632)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(240)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(180)).await;
+            self.tx_off();
+            Timer::after(Duration::from_micros(632)).await;
+
+            Timer::after(Duration::from_micros(6320)).await;
+        }
         self.go_idle().await?;
+
+        Timer::after(Duration::from_millis(1000)).await;
+
+        for _ in 0..30 {
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(304)).await;
+            self.tx_off(); // 1
+            Timer::after(Duration::from_micros(732)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(304)).await;
+            self.tx_off(); // 1
+            Timer::after(Duration::from_micros(304)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(304)).await;
+            self.tx_off(); // 1
+            Timer::after(Duration::from_micros(732)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(304)).await;
+            self.tx_off(); // 1
+            Timer::after(Duration::from_micros(732)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(304)).await;
+            self.tx_off(); // 1
+            Timer::after(Duration::from_micros(732)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(304)).await;
+            self.tx_off(); // 1
+            Timer::after(Duration::from_micros(732)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(304)).await;
+            self.tx_off(); // 1
+            Timer::after(Duration::from_micros(732)).await;
+
+            self.tx_on(); // 1
+            Timer::after(Duration::from_micros(304)).await;
+            self.tx_off(); // 1
+            Timer::after(Duration::from_micros(732)).await;
+        }
 
         Ok(())
     }
@@ -402,46 +591,74 @@ where
             .with_modulation(self.modulation);
         let mut last_edge: Option<Instant> = None;
 
+        info!("started listening");
         self.go_rx().await?;
 
+        Timer::after(Duration::from_millis(1000)).await;
+
         let mut timeout = Timer::after(Duration::from_millis(2000));
+        let mut rising = true;
+
+        const MIN_PULSE_US: u16 = 150;
 
         loop {
-            let rising = self.rx.wait_for_any_edge();
+            // Step 1: Wait for rising edge
+            let mut edge = self.rx.wait_for_rising_edge();
+            let now_rising = match select(timeout, edge).await {
+                Either::First(_) => break, // timeout
+                Either::Second(_) => Instant::now(),
+            };
 
-            match select(timeout, rising).await {
-                Either::First(_) => {
-                    break;
-                }
-                Either::Second(_) => {
-                    last_edge = match last_edge {
-                        None => Some(Instant::now()),
-                        Some(last_edge) => {
-                            let now = Instant::now();
-                            let delta = now - last_edge;
+            // Measure delta from last edge if available
+            if let Some(prev) = last_edge {
+                let delta = (now_rising - prev).as_micros().try_into().unwrap();
 
-                            match signal.push_timing(delta.as_micros().try_into().unwrap()) {
-                                Err(_) => {
-                                    return Ok(RadioEvent::SignalTooLong);
-                                }
-                                Ok(()) => {}
-                            };
-
-                            Some(now)
-                        }
-                    };
+                // Filter short pulses
+                if delta >= MIN_PULSE_US {
+                    if signal.push_timing(delta).is_err() {
+                        info!("too long");
+                        self.go_idle().await?;
+                        return Ok(RadioEvent::Signal(signal));
+                    }
                 }
             }
+            last_edge = Some(now_rising);
+            let mut timeout = Timer::after(Duration::from_millis(2000));
+
+            // Step 2: Wait for falling edge
+            let edge = self.rx.wait_for_falling_edge();
+            let now_falling = match select(timeout, edge).await {
+                Either::First(_) => break, // timeout
+                Either::Second(_) => Instant::now(),
+            };
+
+            let delta = (now_falling - now_rising).as_micros().try_into().unwrap();
+
+            // Filter short pulses
+            if delta >= MIN_PULSE_US {
+                if signal.push_timing(delta).is_err() {
+                    info!("too long");
+                    self.go_idle().await?;
+                    return Ok(RadioEvent::Signal(signal));
+                }
+            }
+
+            last_edge = Some(now_falling);
+
+            // Reset timeout for next iteration
             timeout = Timer::after(Duration::from_millis(50));
         }
 
         self.go_idle().await?;
 
         if signal.is_empty() {
+            info!("no signal");
             return Ok(RadioEvent::NoSignal);
         }
 
         info!("Signal length: {}", signal.timings.len());
+
+        info!("signal ok");
 
         Ok(RadioEvent::Signal(signal))
     }
