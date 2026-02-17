@@ -7,6 +7,10 @@ use embassy_net::{
 
 use heapless::String;
 
+use ufmt::uwrite;
+
+use core::fmt::Write as FmtWrite;
+
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_sync::channel::{self, DynamicReceiver, DynamicSender};
@@ -140,10 +144,11 @@ impl<'a> CliService<'a> {
 
             Ir::List => {
                 let len = crate::devices::ir::SIGNAL_HISTORY.get().lock().await.len();
-                for i in 0..len {
-                    socket.write_all(b"X ").await;
-                }
-                socket.write_all(b"\n").await;
+
+                let mut out: String<64> = String::new();
+                write!(out, "There are {} signals\n", len).unwrap();
+
+                socket.write_all(out.as_bytes()).await;
             }
 
             Ir::Tx { idx } => {
@@ -208,10 +213,11 @@ impl<'a> CliService<'a> {
 
             Radio::List => {
                 let len = crate::devices::cc1101::SIGNAL_HISTORY.get().lock().await.len();
-                for i in 0..len {
-                    socket.write_all(b"X ").await;
-                }
-                socket.write_all(b"\n").await;
+
+                let mut out: String<64> = String::new();
+                write!(out, "There are {} signals\n", len).unwrap();
+
+                socket.write_all(out.as_bytes()).await;
             }
 
             Radio::Tx { idx } => {

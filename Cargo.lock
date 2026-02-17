@@ -1940,6 +1940,7 @@ dependencies = [
  "smoltcp",
  "ssd1306",
  "static_cell",
+ "ufmt",
 ]
 
 [[package]]

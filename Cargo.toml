@@ -69,6 +69,7 @@ edge-nal-embassy = "0.8.1"
 embedded-cli = "0.2.1"
 embedded-hal-bus = { version = "0.3.0", features = ["async"] }
 fpmath = "0.1.1"
+ufmt = "0.2.0"
 
 
 [profile.dev]
