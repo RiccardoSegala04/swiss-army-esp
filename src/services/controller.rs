@@ -39,19 +39,6 @@ where
     }
 
     pub async fn run(&mut self) -> ! {
-        // let commands = ControllerService::<PWMpin, InPin>::commands_receiver();
-        // loop {
-        //     let command = commands.receive().await;
-        //     match command {
-        //         ControllerCommand::LedColor { red, green, blue } => {
-        //             // Handle LED color change
-        //             // For example, set the LED color using the device driver
-        //             //self.controller_driver.set_led(red, green, blue).ok();
-        //             self.send_event(ControllerEvent::ConfirmPressed).await;
-        //         }
-        //     }
-        // }
-
         loop {
             let ev = self.controller_driver.poll_events().await;
             self.send_event(ev).await;

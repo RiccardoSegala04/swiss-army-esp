@@ -37,13 +37,6 @@ where
         }
     }
 
-    // pub fn set_led(&mut self, red: u8, green: u8, blue: u8) -> Result<(), PWMpin::Error> {
-    //     self.rgb_led.0.set_duty_cycle_percent(red)?;
-    //     self.rgb_led.1.set_duty_cycle_percent(green)?;
-    //     self.rgb_led.2.set_duty_cycle_percent(blue)?;
-    //     Ok(())
-    // }
-
     pub fn is_confirm_pressed(&mut self) -> Result<bool, InPin::Error> {
         self.confirm.is_low()
     }

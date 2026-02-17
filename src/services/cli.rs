@@ -5,14 +5,13 @@ use embassy_net::{IpListenEndpoint, Stack, tcp::TcpSocket};
 use heapless::String;
 
 use core::fmt::Write as FmtWrite;
+use embedded_io_async::Write as IoWrite;
 
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_sync::channel::{DynamicReceiver, DynamicSender};
 
 use embassy_futures::select::{Either, select};
-
-use embedded_io_async::Write;
 
 use crate::devices::cc1101::{RadioCommand, RadioEvent};
 use crate::devices::ir::{InfraredCommand, InfraredEvent};
@@ -70,6 +69,54 @@ enum Base {
 
     /// Stop CLI and exit
     Exit,
+}
+
+pub async fn print_help<W>(mut w: W) -> Result<(), W::Error>
+where
+    W: IoWrite,
+{
+    // Small stack buffer reused for each line
+    let mut buf: heapless::String<128> = heapless::String::new();
+
+    macro_rules! line {
+        ($($arg:tt)*) => {{
+            buf.clear();
+            write!(buf, $($arg)*).unwrap();
+            w.write_all(buf.as_bytes()).await?;
+        }};
+    }
+
+    line!("Available commands:\n");
+    line!("\n");
+
+    line!("  ir rx\n");
+    line!("      Start IR receiver\n");
+    line!("\n");
+
+    line!("  ir list\n");
+    line!("      List stored IR signals\n");
+    line!("\n");
+
+    line!("  ir tx <idx>\n");
+    line!("      Transmit stored IR signal at index <idx>\n");
+    line!("\n");
+
+    line!("  radio rx\n");
+    line!("      Start radio receiver\n");
+    line!("\n");
+
+    line!("  radio list\n");
+    line!("      List stored radio packets\n");
+    line!("\n");
+
+    line!("  radio tx <idx>\n");
+    line!("      Transmit stored radio packet at index <idx>\n");
+    line!("\n");
+
+    line!("  exit\n");
+    line!("      Stop CLI and exit\n\n");
+
+    Ok(())
 }
 
 pub struct CliService<'a> {
@@ -281,6 +328,7 @@ impl<'a> CliService<'a> {
             }
 
             socket.write_all(LOGO.as_bytes()).await;
+            print_help(&mut socket).await.unwrap();
 
             let mut buffer: [u8; 128] = [0; 128];
 
