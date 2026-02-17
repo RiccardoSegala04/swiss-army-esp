@@ -1,11 +1,4 @@
-use embedded_graphics::{
-    draw_target::DrawTarget,
-    mono_font::{MonoTextStyleBuilder, ascii::FONT_6X10},
-    pixelcolor::BinaryColor,
-    prelude::*,
-    primitives::{CornerRadiiBuilder, Rectangle, RoundedRectangle},
-    text::{Alignment, Text},
-};
+use embedded_graphics::{draw_target::DrawTarget, pixelcolor::BinaryColor, prelude::*, text::Text};
 use heapless::Vec;
 
 use crate::devices::display::Display;

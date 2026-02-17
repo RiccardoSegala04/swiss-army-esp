@@ -1,4 +1,3 @@
-use defmt::info;
 use embassy_futures::select::{Either, select};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::{Channel, DynamicReceiver, DynamicSender};

@@ -10,13 +10,11 @@ use embedded_hal_async::digital::Wait;
 use embedded_hal_async::spi::SpiDevice;
 use embedded_time::rate::{self, Baud, Hertz};
 
-use heapless::{Vec, String};
+use heapless::{String, Vec};
 
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::lazy_lock::LazyLock;
 use embassy_sync::mutex::Mutex;
-
-use esp_hal::delay::Delay;
 
 pub static SIGNAL_HISTORY: LazyLock<Mutex<CriticalSectionRawMutex, Vec<RadioSignal, 5>>> =
     LazyLock::new(|| {
@@ -27,10 +25,12 @@ pub static SIGNAL_HISTORY: LazyLock<Mutex<CriticalSectionRawMutex, Vec<RadioSign
                 180, 632, 180, 632, 180, 632, 180, 632, 632, 240, 632, 240, 180, 632, 180, 632,
                 180, 632,
             ])),
-            RadioSignal::new().with_timings(Vec::<u16, 1024>::from_array([
-                304, 732, 304, 304, 732, 304, 732, 732, 304, 732, 304, 304, 732, 732, 304, 304,
-                732, 732, 304, 304, 732, 732, 304, 304, 732, 732,
-            ])).with_name("GATE TN"),
+            RadioSignal::new()
+                .with_timings(Vec::<u16, 1024>::from_array([
+                    304, 732, 304, 304, 732, 304, 732, 732, 304, 732, 304, 304, 732, 732, 304, 304,
+                    732, 732, 304, 304, 732, 732, 304, 304, 732, 732,
+                ]))
+                .with_name("GATE TN"),
         ]))
     });
 

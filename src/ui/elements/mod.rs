@@ -8,5 +8,4 @@ pub mod top_bar;
 pub use button::Button;
 pub use element::ElementType;
 pub use list::List;
-pub use signal_viewer::SignalViewer;
 pub use top_bar::TopBar;

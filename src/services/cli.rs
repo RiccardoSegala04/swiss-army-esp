@@ -1,30 +1,25 @@
 use defmt::info;
 
-use embassy_net::{
-    IpListenEndpoint, Ipv4Cidr, Runner, Stack, StackResources, StaticConfigV4,
-    tcp::{TcpSocket, TcpWriter},
-};
+use embassy_net::{IpListenEndpoint, Stack, tcp::TcpSocket};
 
 use heapless::String;
-
-use ufmt::uwrite;
 
 use core::fmt::Write as FmtWrite;
 
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
-use embassy_sync::channel::{self, DynamicReceiver, DynamicSender};
+use embassy_sync::channel::{DynamicReceiver, DynamicSender};
 
 use embassy_futures::select::{Either, select};
 
 use embedded_io_async::Write;
 
-use crate::devices::ir::{InfraredCommand, InfraredEvent};
 use crate::devices::cc1101::{RadioCommand, RadioEvent};
+use crate::devices::ir::{InfraredCommand, InfraredEvent};
 use crate::services::router::{RouterCommand, RouterEvent};
 
 use embedded_cli::{
-    Command, CommandGroup,
+    Command,
     cli::{Cli, CliBuilder},
     writer::EmptyWriter,
 };
@@ -63,7 +58,6 @@ enum Radio {
 
 #[derive(Command, Clone)]
 enum Base {
-
     Ir {
         #[command(subcommand)]
         ir: Ir,
@@ -212,7 +206,11 @@ impl<'a> CliService<'a> {
             }
 
             Radio::List => {
-                let len = crate::devices::cc1101::SIGNAL_HISTORY.get().lock().await.len();
+                let len = crate::devices::cc1101::SIGNAL_HISTORY
+                    .get()
+                    .lock()
+                    .await
+                    .len();
 
                 let mut out: String<64> = String::new();
                 write!(out, "There are {} signals\n", len).unwrap();
@@ -251,7 +249,6 @@ impl<'a> CliService<'a> {
     async fn handle_command(&self, socket: &mut TcpSocket<'_>, command: Option<Base>) {
         if let Some(c) = command {
             match c {
-
                 Base::Ir { ir } => self.handle_ir_command(socket, ir).await,
 
                 Base::Radio { radio } => self.handle_radio_command(socket, radio).await,

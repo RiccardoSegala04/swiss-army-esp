@@ -1,13 +1,13 @@
 use defmt::info;
-use embedded_graphics::{draw_target::DrawTarget, prelude::*, text::Text};
-use heapless::{String, Vec};
+use embedded_graphics::{draw_target::DrawTarget, prelude::*};
+use heapless::Vec;
 
 use crate::devices::controller::ControllerEvent;
 use crate::devices::display::Display;
-use crate::devices::ir::{InfraredCommand, InfraredEvent, IrSignal};
+use crate::devices::ir::InfraredCommand;
 use crate::services::router::{RouterCommand, RouterEvent};
 
-use super::view::{ViewAction, ViewContext, ViewType, Viewable};
+use super::view::{ViewAction, ViewContext, Viewable};
 
 use crate::ui::Style;
 use crate::ui::elements::{List, TopBar};

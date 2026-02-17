@@ -10,7 +10,7 @@ use crate::ui::views::view::ViewType;
 
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
-use embassy_sync::channel::{self, DynamicReceiver, DynamicSender};
+use embassy_sync::channel::DynamicSender;
 
 use crate::services::router::{RouterEvent, RouterService};
 

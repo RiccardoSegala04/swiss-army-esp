@@ -1,4 +1,4 @@
-use embedded_graphics::{draw_target::DrawTarget, prelude::*, text::Text};
+use embedded_graphics::{draw_target::DrawTarget, prelude::*};
 use heapless::Vec;
 
 use crate::services::router::RouterEvent;

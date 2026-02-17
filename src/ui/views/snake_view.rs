@@ -1,5 +1,4 @@
-use embedded_graphics::{draw_target::DrawTarget, prelude::*, text::Text};
-use heapless::Vec;
+use embedded_graphics::{draw_target::DrawTarget, prelude::*};
 
 use embassy_futures::select::{Either, select};
 
@@ -13,10 +12,10 @@ use crate::services::router::RouterEvent;
 use crate::devices::controller::ControllerEvent;
 use crate::devices::display::Display;
 
-use super::view::{ViewAction, ViewContext, ViewType, Viewable};
+use super::view::{ViewAction, ViewContext, Viewable};
 
 use crate::ui::Style;
-use crate::ui::elements::{List, TopBar};
+use crate::ui::elements::TopBar;
 
 const TOP_BAR_HEIGHT: i32 = 16;
 const DISPLAY_WIDTH: i32 = 128;

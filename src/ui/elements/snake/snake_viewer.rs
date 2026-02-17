@@ -1,13 +1,8 @@
 use embedded_graphics::{
-    draw_target::DrawTarget,
-    mono_font::{MonoTextStyleBuilder, ascii::FONT_6X10},
-    pixelcolor::BinaryColor,
-    prelude::*,
-    primitives::{CornerRadiiBuilder, Rectangle, RoundedRectangle},
-    text::{Alignment, Text},
+    draw_target::DrawTarget, pixelcolor::BinaryColor, prelude::*, primitives::Rectangle,
 };
 
-use crate::ui::elements::snake::game::{Direction, Game, GameState, Tile};
+use crate::ui::elements::snake::game::{Game, Tile};
 
 use crate::ui::Style;
 

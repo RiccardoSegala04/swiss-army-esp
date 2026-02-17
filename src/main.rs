@@ -17,15 +17,12 @@ use embassy_executor::{Spawner, task};
 use embedded_hal_bus::spi::ExclusiveDevice;
 use esp_hal::gpio::{DriveMode, Input, InputConfig, Level, Output, OutputConfig, Pull};
 
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::channel::Channel;
 use embedded_time::rate::Hertz;
 use esp_hal::timer::timg::TimerGroup;
 
 mod devices;
 use devices::Controller;
 use devices::cc1101::Cc1101;
-use devices::cc1101_driver::CC1101Driver;
 use devices::display::DisplaySsd1306;
 use devices::ir::Infrared;
 
@@ -38,7 +35,7 @@ mod services;
 use services::cli::CliService;
 use services::controller::ControllerService;
 use services::infrared::InfraredService;
-use services::router::{RouterEvent, RouterService};
+use services::router::RouterService;
 
 use esp_hal::ledc::channel::{self, ChannelIFace};
 use esp_hal::ledc::timer::{self, TimerIFace};
@@ -57,9 +54,7 @@ use core::{net::Ipv4Addr, str::FromStr};
 
 use embassy_time::{Duration, Timer};
 
-use embassy_net::{
-    IpListenEndpoint, Ipv4Cidr, Runner, Stack, StackResources, StaticConfigV4, tcp::TcpSocket,
-};
+use embassy_net::{Ipv4Cidr, Runner, Stack, StackResources, StaticConfigV4};
 
 use esp_hal::rng::Rng;
 use esp_radio::wifi::{AccessPointConfig, ModeConfig, WifiDevice};
